@@ -1,0 +1,198 @@
+{
+  "_說明": "畫面上看得到的固定文字直接寫在 index.html。這裡只放程式動態產生的句子、狀態列提示、確認框、toast，以及提示詞。已儲存在 API 設定裡的提示詞需按還原後再儲存才會更新。{大括號}是程式填入的變數，請保留。",
+
+  "ui": {
+    "projectFallback": "預設",
+    "pageFolder": "第 {n} 頁　{num}",
+    "unusedFolder": "未分類",
+    "measureSample": "對白",
+    "deleteLine": "刪除這則對白",
+    "deleteFail": "刪除失敗",
+    "requestFail": "失敗"
+  },
+
+  "tools": {
+    "select": "選擇　(V)",
+    "pan": "拖曳　(空白)",
+    "brush": "筆刷　(B)",
+    "eraser": "橡皮擦　(E)",
+    "rect": "矩形　(U)",
+    "lasso": "套索　(L)",
+    "picker": "滴管　(I)",
+    "text": "文字　(T)"
+  },
+
+  "actions": {
+    "btn-undo": "撤銷　（Ctrl+Z）",
+    "btn-redo": "復原　（Ctrl+Y）",
+    "brush-size": "筆刷尺寸",
+    "brush-hard": "筆刷硬度",
+    "brush-color": "顏色",
+    "btn-clear-paint": "清除　刪除本頁所有覆蓋",
+    "btn-hide-paint": "隱藏　只隱藏覆蓋，不隱藏文字",
+    "btn-hide-paint-on": "還原　顯示覆蓋層，文字維持可見",
+    "btn-hide-text": "顯示原圖",
+    "btn-hide-text-on": "顯示修改",
+    "btn-fit": "適合畫面",
+    "btn-fit-w": "適應寬度　讓文字框寬度貼齊文字",
+    "btn-fit-h": "適應高度　讓文字框高度貼齊文字",
+    "zoom-label": "顯示比例",
+    "drag-sort": "拖動排序　拖曳調整對白順序",
+    "line-del": "刪除　刪除這則對白",
+    "btn-unplace-text": "移除對白　將對白從本頁移除，不刪除對白",
+    "btn-del-text": "刪除對白　將對白從資料庫刪除",
+    "btn-open-project": "開啟　選擇圖片資料夾作為專案",
+    "btn-new-project": "新建　在空資料夾建立新專案",
+    "btn-style-from-current": "套用目前設定　把右側文字樣式寫入這個樣式"
+  },
+
+  "hints": {
+    "swatchRemove": "{hex}　右鍵移除"
+  },
+
+  "placeholders": {
+    "dialogueEmpty": "（空）",
+    "apiKey": "貼上你的 API Key",
+    "apiKeySaved": "已儲存，留空則沿用"
+  },
+
+  "preview": {
+    "sample": "示範文字\nABC123"
+  },
+
+  "style": {
+    "choose": "選擇樣式",
+    "empty": "尚無樣式",
+    "newName": "樣式 {n}",
+    "unnamed": "未命名",
+    "deleteAria": "刪除樣式",
+    "defaultMark": "預設",
+    "presetSpeech": "對白",
+    "presetNarration": "旁白",
+    "presetSfx": "擬音"
+  },
+
+  "status": {
+    "noPages": "尚未匯入圖片"
+  },
+
+  "confirm": {
+    "deletePage": "刪除「{name}」？圖片會從專案資料夾移除，該頁對白也會一併刪除。",
+    "clearPaint": "清除本頁塗抹？原文會再出現。",
+    "autoMany": "將檢測 {n} 頁{extra}。繼續？",
+    "autoManyLocal": "（本地 OCR，翻譯仍會呼叫 API）"
+  },
+
+  "log": {
+    "recognize": "識別 {i}/{n}　{name}",
+    "found": "　找到 {n} 則對白",
+    "modelRaw": "　模型回傳：{text}",
+    "fail": "　失敗：{msg}",
+    "none": "沒有檢測到對白",
+    "noTranslateApi": "未設定翻譯 API",
+    "translateStart": "開始翻譯 {n} 則對白",
+    "translateChunk": "已翻譯 {a}–{b} / {n} 則對白",
+    "translateFail": "　翻譯失敗：{msg}",
+    "done": "翻譯完成",
+    "abort": "中止：{msg}",
+    "running": "檢測中…",
+    "start": "開始檢測"
+  },
+
+  "toast": {
+    "saveFail": "儲存失敗",
+    "picked": "{hex}",
+    "pickedFail": "無法吸取顏色",
+    "clearPaintFail": "畫筆已清除，但伺服器檔案未能刪除",
+    "pageLoadFail": "無法載入「{name}」",
+    "selectFirst": "請先選取對白",
+    "deleteFail": "刪除失敗：{msg}",
+    "deleted": "已刪除 {name}",
+    "presetApplied": "已套用「{name}」",
+    "presetFromCurrent": "已套用目前設定",
+    "swatchDup": "這個顏色已在色票裡",
+    "swatchFull": "色票已達到上限",
+    "swatchAdd": "已加入色票",
+    "swatchRemove": "已移除色票",
+    "importPagesHint": "請用上方「匯入圖片」加入頁面",
+    "settingsLoadFail": "讀取 API 設定失敗：{msg}",
+    "autoLoadFail": "讀取設定失敗：{msg}",
+    "pickAutoPages": "請勾選要檢測的頁面",
+    "needVisionKey": "請填入 API Key。或改回本地 OCR。",
+    "noDialogue": "沒有識別到對白",
+    "recognizeDone": "識別完成，共 {n} 則",
+    "noWrite": "沒有可寫入的結果",
+    "wrote": "已寫入 {n} 則對白",
+    "apiSaved": "API 設定已儲存",
+    "apiOk": "連線測試成功。",
+    "visionOk": "視覺檢測成功。",
+    "addedDialogue": "已加入 {n} 則對白",
+    "applyPage": "已套用到本頁對白",
+    "applyAll": "已套用到全部對白",
+    "projectSaved": "專案已儲存",
+    "needImport": "請先匯入圖片",
+    "pickExport": "請勾選要匯出的頁面",
+    "exporting": "匯出中 {i}/{n}",
+    "exportedOne": "已匯出到專案的「匯出」資料夾",
+    "exportedMany": "已匯出 {n} 頁到專案的「匯出」資料夾",
+    "projectOpened": "已開啟「{name}」",
+    "projectCreated": "已建立「{name}」",
+    "projectSwitchFail": "切換專案失敗：{msg}",
+    "exportFail": "匯出失敗：{msg}",
+    "importedOne": "已匯入 {name}",
+    "importedMany": "已匯入 {n} 張圖片",
+    "importFail": "匯入失敗：{msg}",
+    "fontOk": "字體已匯入",
+    "fontNone": "沒有匯入字體",
+    "fontFail": "字體匯入失敗：{msg}",
+    "bootFail": "啟動失敗：{msg}"
+  },
+
+  "probe": {
+    "apiFail": "連線測試失敗。",
+    "visionFail": "視覺檢測失敗。",
+    "reasons": {
+      "missing_key": "未填寫 API Key。",
+      "missing_model": "未填寫模型名稱。",
+      "missing_base": "未填寫 API 位址。",
+      "unreachable": "無法連線至指定位址。",
+      "http_401": "API Key 驗證失敗。",
+      "http_403": "目前金鑰沒有使用此模型的權限。",
+      "http_404": "找不到對應的 API 端點或模型。",
+      "http_429": "請求次數已達上限。",
+      "http_5xx": "服務端暫時無法處理請求。",
+      "http_other": "API 拒絕此次請求。",
+      "timeout": "等候回應逾時。",
+      "no_content": "模型未回傳可用內容。",
+      "no_vision": "目前模型無法讀取圖片。",
+      "vision_mismatch": "模型未能正確讀取測試圖像。",
+      "invalid_json": "API 回傳格式異常。",
+      "need_pillow": "本地缺少圖像處理元件。",
+      "unknown": "測試未完成。"
+    },
+    "actions": {
+      "missing_key": "請於設定中填入有效金鑰後重試。",
+      "missing_model": "請確認模型名稱後重試。",
+      "missing_base": "請確認位址為 OpenAI 相容端點後重試。",
+      "unreachable": "請檢查網路連線與 API 位址。",
+      "http_401": "請確認金鑰是否有效，以及是否屬於此服務。",
+      "http_403": "請更換模型，或使用具有該模型權限的金鑰。",
+      "http_404": "請檢查 API 位址與模型名稱。",
+      "http_429": "請稍後再試，或檢查服務配額。",
+      "http_5xx": "請稍後再試。",
+      "http_other": "請檢查 API 位址、模型名稱與金鑰後重試。",
+      "timeout": "請稍後再試，或檢查網路狀況。",
+      "no_content": "請更換模型後重試。",
+      "no_vision": "請改用支援視覺輸入的模型。",
+      "vision_mismatch": "請改用支援視覺輸入的模型，並確認端點接受圖像。",
+      "invalid_json": "請確認 API 位址為 OpenAI 相容的 chat completions 端點。",
+      "need_pillow": "請安裝 Pillow 後重新啟動工具。",
+      "unknown": "請確認設定後重試。"
+    }
+  },
+
+  "prompts": {
+    "ocr": "你是日漫氣泡識別與 OCR 助手。識別漫畫頁中的文字，必須根據圖片內容工作，只輸出 JSON。\n\n這是日式漫畫頁，上面一定有手寫或印刷的日文。請找出所有對白氣泡、獨白、心聲、旁白框裡的字。\n閱讀順序：右翻漫畫，先右後左、先上後下；同一格內也依此順序。\n規則：\n- 一個氣泡／一個對白框 = 一則，不要合併不同氣泡，也不要拆同一氣泡\n- src 填日文原文，直排也要依人類閱讀順序寫成通順字串\n- 保留原文既有標點、延音、擬聲（ー … ！ ？ ～ ♡ 等），不要翻譯\n- 不要因為字是手寫、歪斜、直排就略過\n- 座標 x y w h 為相對整頁的 0~1（左上為原點）\n- kind 只能是 speech / thought / narration / sfx\n- 禁止回傳空的 bubbles。圖上有字就要全部列出\n\n輸出格式：\n{\"bubbles\":[{\"order\":1,\"src\":\"原文\",\"x\":0.12,\"y\":0.08,\"w\":0.1,\"h\":0.22,\"kind\":\"speech\"}]}",
+    "translate": "你是專業日漫漢化譯者。把每一則對白譯成自然的繁體中文口語，供氣泡使用。\n\n語氣：\n- 還原角色口吻、情緒、節奏，在不破壞原文的基礎上轉換成自然中文口語\n- 不要書面腔、不要翻譯腔、不要補敘原文沒說的內容\n- 專有名詞、稱呼、口癖盡量前後一致\n\n標點規則：\n- 不得擅自加上中文句號「。」或逗號「，」\n- 不得添加原文沒有的句讀\n- 不得使用半形標點\n- 允許使用：！ ？ … —— ～ ♡ ♥ 「」空格，以及原文已有標點的對應形式\n- 省略用「…」，拉長語氣用「——」或「～」\n\n斷句：\n- 一則對一則，order 必須對上，不得合併或拆則\n- 換行使用「\\n」，每行約 5～9 字；短句維持一行，只在詞組或語氣停頓處換行\n- 同一句對白必須保持連貫性\n\n只輸出 JSON：\n{\"items\":[{\"order\":1,\"text\":\"第一行\\n第二行\"}]}"
+  }
+}

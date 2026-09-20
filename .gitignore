@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 本機設定與專案資料（含 API Key、頁面、字體）
+data/settings.json
+data/workspace.json
+data/project.json
+data/erase/
+data/thumbs/
+data/fonts/
+*.otf
+*.ttf
+*.woff
+*.woff2

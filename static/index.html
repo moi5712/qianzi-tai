@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>嵌字台</title>
+  <link rel="stylesheet" href="/static/styles.css?v=20260920q" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="mark" aria-hidden="true"><svg class="filled" viewBox="0 0 640 640"><path d="M128 512L512 512C547.3 512 576 483.3 576 448L576 208C576 172.7 547.3 144 512 144L362.7 144C355.8 144 349 141.8 343.5 137.6L305.1 108.8C294 100.5 280.5 96 266.7 96L128 96C92.7 96 64 124.7 64 160L64 448C64 483.3 92.7 512 128 512z"/></svg></span>
+        <span id="project-name" class="project-name">預設</span>
+      </div>
+      <div class="top-actions">
+        <div class="top-group">
+          <button type="button" id="btn-import-font">匯入字體</button>
+          <input id="font-file" type="file" accept=".ttf,.otf,.woff,.woff2" multiple hidden />
+          <button type="button" id="btn-api-settings">API 設定</button>
+          <button type="button" id="btn-help">說明</button>
+        </div>
+        <i class="tool-sep" aria-hidden="true"></i>
+        <div class="top-group">
+          <button type="button" id="btn-open-project">開啟</button>
+          <button type="button" id="btn-new-project">新建</button>
+          <button type="button" id="btn-import-page">匯入圖片</button>
+          <input id="page-file" type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" multiple hidden />
+          <button type="button" id="btn-save">儲存專案</button>
+          <button type="button" id="btn-export">匯出</button>
+        </div>
+      </div>
+    </header>
+
+    <div id="main">
+      <aside class="rail">
+        <div class="rail-head">
+          <span>頁面</span>
+          <b id="page-count">0</b>
+        </div>
+        <div id="thumbs"></div>
+      </aside>
+
+      <section class="stage">
+        <div class="toolbar">
+          <div class="tool-group" id="tools">
+            <button type="button" data-tool="select" class="on" aria-label="選擇">
+              <svg class="filled" viewBox="0 0 24 24"><path d="M20.5 11.56c.02-.41-.2-.79-.58-.96l-15-7.01a.99.99 0 0 0-1.13.2c-.3.3-.38.75-.2 1.13l7 15c.17.35.52.58.91.58h.06c.41-.02.76-.29.89-.68l1.49-4.47 5.36 5.36 1.41-1.41-5.36-5.36 4.47-1.49c.39-.13.66-.48.68-.89"/></svg>
+            </button>
+            <button type="button" data-tool="pan" aria-label="平移">
+              <svg class="filled" viewBox="0 0 24 24"><path d="M20.5 5c-.83 0-1.5.67-1.5 1.5V11h-1V4.5c0-.83-.67-1.5-1.5-1.5S15 3.67 15 4.5V11h-1V3.5c0-.83-.67-1.5-1.5-1.5S11 2.67 11 3.5V11h-1V4.5C10 3.67 9.33 3 8.5 3S7 3.67 7 4.5v11.81l-2.22-3.6c-.44-.71-1.36-.93-2.07-.49s-.93 1.36-.49 2.07l3.31 5.34A5 5 0 0 0 9.78 22H17c2.76 0 5-2.24 5-5V6.5c0-.83-.67-1.5-1.5-1.5"/></svg>
+            </button>
+            <button type="button" data-tool="brush" aria-label="筆刷">
+              <svg class="filled" viewBox="0 0 24 24"><path d="M10.97 20.39c1.2-1.2 1.8-3.1 1.52-4.84-.24-1.5-1.11-2.7-2.44-3.36-1.27-.64-2.99-.54-4.26.25-1.17.72-1.81 1.89-1.81 3.29 0 .3.02.59.04.86.08 1.03.11 1.42-1.47 2.21-.32.16-.53.47-.55.82s.14.69.43.89c1 .69 2.76 1.49 4.62 1.49 1.35 0 2.74-.42 3.92-1.6Z"/><path d="m16.67 2.91-7.88 7.88c.61.07 1.19.23 1.71.49 1.51.76 2.52 2.08 2.89 3.73l7.69-7.69c1.22-1.22 1.22-3.2 0-4.41s-3.2-1.22-4.41 0"/></svg>
+            </button>
+            <button type="button" data-tool="eraser" aria-label="橡皮擦">
+              <svg class="filled" viewBox="0 0 24 24"><path d="M21 12.41c.78-.78.78-2.05 0-2.83l-5.59-5.59c-.78-.78-2.05-.78-2.83 0L3 13.59c-.78.78-.78 2.05 0 2.83l4.29 4.29c.19.19.44.29.71.29h14v-2h-7.59zM8.41 19l-4-4L10 9.41 15.59 15l-4 4H8.42Z"/></svg>
+            </button>
+            <button type="button" data-tool="rect" aria-label="方框">
+              <svg class="filled" viewBox="0 0 24 24"><path d="M3 3h2v2H3zm0 4h2v2H3zm0 4h2v2H3zm0 4h2v2H3zm0 4h2v2H3zM7 3h2v2H7zm0 16h2v2H7zm4-16h2v2h-2zm0 16h2v2h-2zm4-16h2v2h-2zm0 16h2v2h-2zm4-16h2v2h-2zm0 4h2v2h-2zm0 4h2v2h-2zm0 4h2v2h-2zm0 4h2v2h-2z"/></svg>
+            </button>
+            <button type="button" data-tool="lasso" aria-label="套索">
+              <svg viewBox="0 0 24 24"><path d="M3.704 14.467a10 8 0 1 1 3.115 2.375"/><path d="M7 22a5 5 0 0 1-2-3.994"/><circle cx="5" cy="16" r="2"/></svg>
+            </button>
+            <button type="button" data-tool="picker" aria-label="吸色">
+              <svg class="filled" viewBox="0 0 24 24"><path d="M19.41 3c-.78-.78-2.05-.78-2.83 0l-2.59 2.59L12.7 4.3l-1.41 1.41L12.58 7l-8.29 8.29c-.13.13-.22.29-.26.46l-1 4c-.09.34.01.7.26.95.19.19.45.29.71.29.08 0 .16 0 .24-.03l4-1c.18-.04.34-.13.46-.26l8.29-8.29 1.29 1.29 1.41-1.41L18.4 10l2.59-2.59c.78-.78.78-2.05 0-2.83L19.4 2.99ZM7.48 18.1l-2.11.53.53-2.11 8.1-8.1 1.59 1.59-8.1 8.1Z"/></svg>
+            </button>
+            <button type="button" data-tool="text" aria-label="文字">
+              <svg viewBox="0 0 24 24"><path d="M5 6h14M12 6v13M8 19h8"/><path d="M5 6V5h14v1"/></svg>
+            </button>
+          </div>
+          <i class="tool-sep" aria-hidden="true"></i>
+          <div class="tool-group" id="history">
+            <button type="button" id="btn-undo" aria-label="撤銷" disabled>
+              <svg viewBox="0 0 24 24"><path d="M7 8H4V5"/><path d="M4.6 13A8 8 0 1 0 6 7.2L4 8"/></svg>
+            </button>
+            <button type="button" id="btn-redo" aria-label="復原" disabled>
+              <svg viewBox="0 0 24 24"><path d="M17 8h3V5"/><path d="M19.4 13A8 8 0 1 1 18 7.2L20 8"/></svg>
+            </button>
+          </div>
+          <i class="tool-sep" aria-hidden="true"></i>
+          <div class="tool-group">
+            <label>筆刷 <input id="brush-size" type="range" min="4" max="220" value="28" /></label>
+            <input id="brush-size-val" type="number" min="4" max="220" value="28" />
+            <label>硬度 <input id="brush-hard" type="range" min="0" max="100" value="85" /></label>
+            <label class="swatch"><input id="brush-color" type="color" value="#ffffff" /></label>
+          </div>
+          <i class="tool-sep" aria-hidden="true"></i>
+          <div class="tool-group icon-btns">
+            <button type="button" id="btn-clear-paint" class="danger" aria-label="清除塗抹">
+              <svg class="filled" viewBox="0 0 24 24"><g transform="rotate(90 12 12)"><path d="m18.21 4.16-1.24 1.57c1.18.94 2.08 2.18 2.58 3.6l1.88-.67c-.63-1.77-1.74-3.33-3.22-4.5m-2.94-1.61a10.1 10.1 0 0 0-5.53-.29l.45 1.95c1.45-.33 3.01-.26 4.42.23l.65-1.89Zm-10.49 6c.65-1.36 1.67-2.5 2.94-3.31L6.65 3.55a10.1 10.1 0 0 0-3.68 4.13l1.8.87Zm.16 10.53a9.95 9.95 0 0 0 4.85 2.67l.44-1.95a8.03 8.03 0 0 1-3.88-2.14zm7.96.87.22 1.99c1.87-.21 3.64-.95 5.11-2.12l-1.25-1.56a8 8 0 0 1-4.09 1.7ZM20 12c0 1.51-.42 2.98-1.22 4.25l1.69 1.06c1-1.59 1.53-3.43 1.53-5.35h-.2l-1.8.03Zm-15.95-.88-1.99-.21a10 10 0 0 0-.06 1.1c0 1.53.33 2.99 1 4.36l1.8-.87a7.9 7.9 0 0 1-.75-4.36Z"/></g></svg>
+            </button>
+            <button type="button" id="btn-hide-paint" aria-label="隱藏覆蓋">
+              <svg viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M10.6 10.6A3 3 0 0 0 13.4 13.4"/><path d="M9.4 5.5A10.5 10.5 0 0 1 12 5c5.5 0 9.5 5.5 9.5 7-.4.7-1.3 2.1-2.8 3.4M6.1 6.5C4.2 7.9 3 9.8 2.5 12 3.5 13.5 7.5 19 12 19c1.2 0 2.4-.3 3.5-.8"/></svg>
+            </button>
+            <button type="button" id="btn-hide-text" aria-label="顯示原圖">
+              <svg class="filled" viewBox="3 2 18 20"><path transform="rotate(90 12 12)" d="M21 5C21 3.9 20.1 3 19 3H5C3.9 3 3 3.9 3 5V11H2V13H3V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V13H22V11H21V5ZM19 5V11H5V5H19Z"/></svg>
+            </button>
+          </div>
+          <div class="tool-group icon-btns view-group">
+            <button type="button" id="btn-fit" aria-label="適合畫面">
+              <svg viewBox="0 0 24 24"><path d="M9 4H4v5M15 4h5v5M4 15v5h5M20 15v5h-5"/></svg>
+            </button>
+            <div class="zoom-read" id="zoom-toggle">
+              <span id="zoom-face">100%</span>
+              <select id="zoom-label" aria-label="縮放">
+                <option value="0.25">25%</option>
+                <option value="0.5">50%</option>
+                <option value="0.75">75%</option>
+                <option value="1" selected>100%</option>
+                <option value="1.5">150%</option>
+                <option value="2">200%</option>
+                <option value="4">400%</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div id="viewport">
+          <div id="world">
+            <canvas id="base"></canvas>
+            <canvas id="paint"></canvas>
+            <canvas id="lasso-preview" hidden></canvas>
+            <div id="texts"></div>
+          </div>
+          <div id="brush-cursor" hidden></div>
+          <div id="picker-cursor" hidden>
+            <svg class="filled" viewBox="0 0 24 24"><path d="M19.41 3c-.78-.78-2.05-.78-2.83 0l-2.59 2.59L12.7 4.3l-1.41 1.41L12.58 7l-8.29 8.29c-.13.13-.22.29-.26.46l-1 4c-.09.34.01.7.26.95.19.19.45.29.71.29.08 0 .16 0 .24-.03l4-1c.18-.04.34-.13.46-.26l8.29-8.29 1.29 1.29 1.41-1.41L18.4 10l2.59-2.59c.78-.78.78-2.05 0-2.83L19.4 2.99ZM7.48 18.1l-2.11.53.53-2.11 8.1-8.1 1.59 1.59-8.1 8.1Z"/></svg>
+          </div>
+          <div id="rect-preview" hidden></div>
+        </div>
+      </section>
+
+      <aside class="side">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>對白</h2>
+            <div class="row-btns">
+              <button type="button" id="btn-auto" class="ghost compact">AI 翻譯</button>
+              <button type="button" id="btn-modal-append" class="ghost compact">加入</button>
+            </div>
+          </div>
+          <div class="filters" role="tablist" aria-label="對白篩選">
+            <button type="button" role="tab" data-filter="all" class="on" aria-selected="true">全部</button>
+            <button type="button" role="tab" data-filter="unused" aria-selected="false">未使用</button>
+            <button type="button" role="tab" data-filter="used" aria-selected="false">已使用</button>
+          </div>
+          <label class="check mini">
+            <input id="auto-advance" type="checkbox" checked />
+            自動放置下一則
+          </label>
+          <div id="dialogue-list" class="list"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>文字樣式</h2>
+            <div class="panel-actions">
+              <button type="button" id="btn-unplace-text" class="ghost compact">移除對白</button>
+              <button type="button" id="btn-del-text" class="ghost compact danger">刪除對白</button>
+            </div>
+          </div>
+          <div class="grid-form">
+            <label class="span-2">樣式
+              <span class="box-fit-row">
+                <select id="style-preset"></select>
+                <button type="button" id="btn-style-presets" class="ghost compact fit-box-btn" aria-label="管理樣式">
+                  <svg viewBox="0 0 24 24"><path d="M4 6h2v2H4zm0 5h2v2H4zm0 5h2v2H4zm4-10h12v2H8zm0 5h12v2H8zm0 5h12v2H8z"/></svg>
+                </button>
+              </span>
+            </label>
+            <label>字體
+              <select id="font-family"></select>
+            </label>
+            <label>字級
+              <span class="size-combo">
+                <select id="font-size-pick" tabindex="-1" aria-hidden="true">
+                  <option value="16">16</option>
+                  <option value="18">18</option>
+                  <option value="20">20</option>
+                  <option value="22">22</option>
+                  <option value="24">24</option>
+                  <option value="28">28</option>
+                  <option value="32" selected>32</option>
+                  <option value="36">36</option>
+                  <option value="40">40</option>
+                  <option value="44">44</option>
+                  <option value="48">48</option>
+                  <option value="56">56</option>
+                  <option value="64">64</option>
+                  <option value="72">72</option>
+                  <option value="80">80</option>
+                  <option value="96">96</option>
+                </select>
+                <input id="font-size" type="text" inputmode="decimal" value="32" />
+              </span>
+            </label>
+            <label>字重
+              <select id="font-weight">
+                <option value="400">400 常規</option>
+                <option value="500">500 中等</option>
+                <option value="600">600 半粗</option>
+                <option value="700" selected>700 粗體</option>
+                <option value="800">800 特粗</option>
+                <option value="900">900 黑</option>
+              </select>
+            </label>
+            <label>方向
+              <select id="writing-mode">
+                <option value="vertical">直排</option>
+                <option value="horizontal">橫排</option>
+              </select>
+            </label>
+            <label>水平對齊
+              <select id="align-h">
+                <option value="left">左</option>
+                <option value="center" selected>中</option>
+                <option value="right">右</option>
+              </select>
+            </label>
+            <label>垂直對齊
+              <select id="align-v">
+                <option value="top">上</option>
+                <option value="middle" selected>中</option>
+                <option value="bottom">下</option>
+              </select>
+            </label>
+            <label>填色
+              <span class="color-picks" data-color-input="fill-color">
+                <input id="fill-color" type="color" value="#1a1a1a" />
+                <button type="button" class="chip chip-black" data-color="#000000" data-target="fill-color"></button>
+                <button type="button" class="chip chip-white" data-color="#ffffff" data-target="fill-color"></button>
+                <span class="swatch-list"></span>
+                <button type="button" class="chip chip-add" data-add-swatch>+</button>
+              </span>
+            </label>
+            <label>描邊色
+              <span class="color-picks" data-color-input="stroke-color">
+                <input id="stroke-color" type="color" value="#ffffff" />
+                <button type="button" class="chip chip-black" data-color="#000000" data-target="stroke-color"></button>
+                <button type="button" class="chip chip-white" data-color="#ffffff" data-target="stroke-color"></button>
+                <span class="swatch-list"></span>
+                <button type="button" class="chip chip-add" data-add-swatch>+</button>
+              </span>
+            </label>
+            <label>描邊
+              <input id="stroke-width" type="number" min="0" max="24" step="0.5" value="3" />
+            </label>
+            <label>行高
+              <input id="line-height" type="number" min="0.8" max="2.4" step="0.05" value="1.15" />
+            </label>
+            <label>字距
+              <input id="letter-spacing" type="number" min="-8" max="24" step="0.5" value="0" />
+            </label>
+            <label>旋轉
+              <input id="rotation" type="number" min="-180" max="180" step="0.5" value="0" />
+            </label>
+            <label>寬度
+              <span class="box-fit-row">
+                <input id="box-w" type="number" min="20" max="2000" value="80" />
+                <button type="button" id="btn-fit-w" class="ghost compact fit-box-btn" aria-label="貼齊文字寬">
+                  <svg viewBox="0 0 24 24"><path d="M17.35 14H6.65c-.64 0-.99.76-.56 1.24l5.35 6.11c.3.34.83.34 1.13 0l5.35-6.11c.42-.48.08-1.24-.56-1.24Zm.56-5.24-5.35-6.11a.753.753 0 0 0-1.13 0L6.08 8.76C5.66 9.24 6 10 6.64 10h10.69c.64 0 .99-.76.56-1.24Z"/></svg>
+                </button>
+              </span>
+            </label>
+            <label>高度
+              <span class="box-fit-row">
+                <input id="box-h" type="number" min="20" max="3000" value="160" />
+                <button type="button" id="btn-fit-h" class="ghost compact fit-box-btn" aria-label="貼齊文字高">
+                  <svg viewBox="0 0 24 24"><path d="M17.35 14H6.65c-.64 0-.99.76-.56 1.24l5.35 6.11c.3.34.83.34 1.13 0l5.35-6.11c.42-.48.08-1.24-.56-1.24Zm.56-5.24-5.35-6.11a.753.753 0 0 0-1.13 0L6.08 8.76C5.66 9.24 6 10 6.64 10h10.69c.64 0 .99-.76.56-1.24Z"/></svg>
+                </button>
+              </span>
+            </label>
+          </div>
+          <details class="apply-box" open>
+            <summary><span class="folder-caret" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M17.35 8H6.65c-.64 0-.99.76-.56 1.24l5.35 6.11c.3.34.83.34 1.13 0l5.35-6.11C18.34 8.76 18 8 17.36 8Z"/></svg></span>套用樣式</summary>
+            <div class="checks">
+              <label><input type="checkbox" data-prop="font" checked />字體</label>
+              <label><input type="checkbox" data-prop="fontSize" checked />字級</label>
+              <label><input type="checkbox" data-prop="fontWeight" checked />字重</label>
+              <label><input type="checkbox" data-prop="vertical" checked />方向</label>
+              <label><input type="checkbox" data-prop="alignH" checked />水平對齊</label>
+              <label><input type="checkbox" data-prop="alignV" checked />垂直對齊</label>
+              <label><input type="checkbox" data-prop="color" checked />填色</label>
+              <label><input type="checkbox" data-prop="stroke" checked />描邊</label>
+              <label><input type="checkbox" data-prop="lineHeight" />行高</label>
+              <label><input type="checkbox" data-prop="letterSpacing" />字距</label>
+            </div>
+            <div class="row-btns">
+              <button type="button" id="btn-apply-page">套用到本頁</button>
+              <button type="button" id="btn-apply-all">套用到全部</button>
+            </div>
+          </details>
+        </section>
+      </aside>
+    </div>
+
+    <div id="page-menu" class="ctx-menu" hidden>
+      <button type="button" id="page-menu-delete">刪除</button>
+    </div>
+
+    <footer class="status">
+      <span id="status-page">尚未匯入圖片</span>
+      <span id="status-hint"></span>
+    </footer>
+  </div>
+
+  <div id="modal" class="modal" hidden>
+    <div class="sheet">
+      <h3>加入對白</h3>
+      <p class="hint-mini">以【000】格式標記頁數</p>
+      <label class="check"><input id="opt-blank" type="checkbox" checked />以空行分隔（未勾選為換行分隔）</label>
+      <label class="check"><input id="opt-bilingual" type="checkbox" />雙欄（原文 | 譯文）</label>
+      <textarea id="bulk-text" rows="14"></textarea>
+      <div class="row-btns end">
+        <button type="button" id="btn-modal-cancel">取消</button>
+        <button type="button" id="btn-modal-replace">確定</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="help" class="modal" hidden>
+    <div class="sheet">
+      <h3>使用說明</h3>
+      <ol>
+        <li>點選<code>新建</code>選擇空白資料夾存放專案。</li>
+        <li>點選<code>匯入圖片</code>新增頁面。匯出時勾選要輸出的頁面，成品存到目前專案的 <code>匯出</code> 資料夾。</li>
+        <li>至<code>API 設定</code>接入模型。預設文字識別使用本地 OCR 模型，翻譯使用已設定的 API。於<code>AI 翻譯</code>即可開始；於<code>加入</code>手動匯入譯文。</li>
+        <li>以筆刷、矩形或套索覆蓋原稿文字。套索圈選後會直接填色。滴管可吸取底色。</li>
+        <li>選取一則對白，切換至<code>文字</code>工具，於畫面點選即可放置。畫面中的文字與對白列表連動；刪除畫面上的文字會一併刪除該則對白。</li>
+        <li>使用<code>選擇</code>點選文字框、拖曳框選。</li>
+      </ol>
+      <p>快捷鍵：
+選取：<code>V</code>
+拖曳：<code>空白鍵</code>或<code>滑鼠中鍵</code>
+筆刷：<code>B</code>
+橡皮擦：<code>E</code>
+矩形：<code>U</code>
+套索：<code>L</code>
+滴管：<code>I</code>或<code>滑鼠右鍵</code>
+文字：<code>T</code>
+刪除：<code>Delete</code>
+剪下：<code>Ctrl+X</code>
+複製：<code>Ctrl+C</code>
+貼上：<code>Ctrl+V</code>
+筆刷大小：<code>[</code> 及 <code>]</code>
+撤銷：<code>Ctrl+Z</code>
+復原：<code>Ctrl+Y</code></p>
+      <div class="row-btns end">
+        <button type="button" id="btn-help-close" class="primary">關閉</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="auto-modal" class="modal" hidden>
+    <div class="sheet sheet-auto">
+      <h3>AI 翻譯</h3>
+      <p>請選擇要處理的頁面與執行選項。檢測預設使用本地 OCR 模型，翻譯使用已設定的 API。引擎與提示詞請至「API 設定」調整。</p>
+      <div class="row-btns page-pick-actions">
+        <button type="button" id="btn-auto-pages-current" class="ghost compact">僅本頁</button>
+        <label class="check"><input id="auto-pages-all" type="checkbox" />全選</label>
+      </div>
+      <div id="auto-pages" class="page-picks"></div>
+      <label class="check"><input id="auto-break" type="checkbox" checked />自動斷句</label>
+      <label class="check"><input id="auto-sfx" type="checkbox" />檢測擬音／效果字</label>
+      <label class="check"><input id="auto-place" type="checkbox" checked />自動嵌字至頁面對應位置</label>
+      <div id="auto-log" class="auto-log" hidden></div>
+      <div id="auto-preview" class="auto-preview" hidden></div>
+      <div class="row-btns end">
+        <button type="button" id="btn-auto-cancel">關閉</button>
+        <button type="button" id="btn-auto-run" class="primary">開始檢測</button>
+        <button type="button" id="btn-auto-apply" class="primary" hidden>加入至對白列表</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings-modal" class="modal" hidden>
+    <div class="sheet sheet-auto">
+      <h3>API 設定</h3>
+      <label class="block-field">檢測方式
+        <select id="set-ocr-engine">
+          <option value="local">本地 OCR 模型</option>
+          <option value="api">自訂 API（須支援 OCR 功能才能正常啟用）</option>
+        </select>
+      </label>
+      <div class="auto-grid">
+        <label class="block-field">API 位址
+          <input id="set-api-base" type="text" placeholder="https://api.openai.com/v1" spellcheck="false" />
+        </label>
+        <label class="block-field">模型
+          <input id="set-model" type="text" placeholder="gpt-4o" spellcheck="false" />
+        </label>
+      </div>
+      <label class="block-field">API Key
+        <input id="set-api-key" type="password" placeholder="已儲存，留空則沿用" autocomplete="off" spellcheck="false" />
+      </label>
+      <label class="block-field">檢測提示詞
+        <textarea id="set-ocr-prompt" rows="8"></textarea>
+      </label>
+      <label class="block-field">翻譯與斷句提示詞
+        <textarea id="set-translate-prompt" rows="8"></textarea>
+      </label>
+      <div class="row-btns">
+        <button type="button" id="btn-set-reset-prompt" class="ghost compact">還原預設提示詞</button>
+      </div>
+      <div class="row-btns end">
+        <button type="button" id="btn-set-test">連線測試</button>
+        <button type="button" id="btn-set-vision">文字檢測測試</button>
+        <button type="button" id="btn-set-cancel">關閉</button>
+        <button type="button" id="btn-set-save" class="primary">儲存</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="style-modal" class="modal" hidden>
+    <div class="sheet sheet-style">
+      <div class="style-head">
+        <h3>樣式</h3>
+        <button type="button" id="btn-style-close" class="ghost compact">關閉</button>
+      </div>
+      <div class="style-layout">
+        <div class="style-col-list">
+          <div id="style-preset-list" class="style-preset-list"></div>
+          <div class="style-list-actions">
+            <button type="button" id="btn-style-add" class="ghost compact">新增樣式</button>
+            <button type="button" id="btn-style-remove" class="ghost compact">移除</button>
+          </div>
+        </div>
+        <div id="style-editor" class="style-col-edit" hidden>
+          <div id="style-preview" class="style-preview">
+            <div id="style-preview-inner" class="style-preview-inner">示範文字
+ABC123</div>
+          </div>
+          <div class="style-default-bar">
+            <label class="style-default-row" for="sp-is-default">
+              <input id="sp-is-default" type="checkbox" />設為預設
+            </label>
+            <button type="button" id="btn-style-from-current" class="ghost compact">套用目前設定</button>
+          </div>
+          <div class="grid-form style-edit-form">
+            <div class="style-field">
+              <label class="style-field-head"><input type="checkbox" data-prop="font" checked />字體</label>
+              <select id="sp-font"></select>
+            </div>
+            <div class="style-field">
+              <label class="style-field-head"><input type="checkbox" data-prop="fontSize" checked />字級</label>
+              <span class="size-combo">
+                <select id="sp-font-size-pick" tabindex="-1" aria-hidden="true">
+                  <option value="16">16</option>
+                  <option value="18">18</option>
+                  <option value="20">20</option>
+                  <option value="22">22</option>
+                  <option value="24">24</option>
+                  <option value="28">28</option>
+                  <option value="32">32</option>
+                  <option value="36">36</option>
+                  <option value="40">40</option>
+                  <option value="44">44</option>
+                  <option value="48">48</option>
+                  <option value="56">56</option>
+                  <option value="64">64</option>
+                  <option value="72">72</option>
+                  <option value="80">80</option>
+                  <option value="96">96</option>
+                </select>
+                <input id="sp-font-size" type="text" inputmode="decimal" value="32" />
+              </span>
+            </div>
+            <div class="style-field">
+              <label class="style-field-head"><input type="checkbox" data-prop="fontWeight" checked />字重</label>
+              <select id="sp-font-weight">
+                <option value="400">400 常規</option>
+                <option value="500">500 中等</option>
+                <option value="600">600 半粗</option>
+                <option value="700">700 粗體</option>
+                <option value="800">800 特粗</option>
+                <option value="900">900 黑</option>
+              </select>
+            </div>
+            <div class="style-field">
+              <label class="style-field-head"><input type="checkbox" data-prop="vertical" checked />方向</label>
+              <select id="sp-writing-mode">
+                <option value="vertical">直排</option>
+                <option value="horizontal">橫排</option>
+              </select>
+            </div>
+            <div class="style-field">
+              <label class="style-field-head"><input type="checkbox" data-prop="alignH" checked />水平對齊</label>
+              <select id="sp-align-h">
+                <option value="left">左</option>
+                <option value="center">中</option>
+                <option value="right">右</option>
+              </select>
+            </div>
+            <div class="style-field">
+              <label class="style-field-head"><input type="checkbox" data-prop="alignV" checked />垂直對齊</label>
+              <select id="sp-align-v">
+                <option value="top">上</option>
+                <option value="middle">中</option>
+                <option value="bottom">下</option>
+              </select>
+            </div>
+            <div class="style-field">
+              <label class="style-field-head"><input type="checkbox" data-prop="color" checked />填色</label>
+              <span class="color-picks" data-color-input="sp-fill-color">
+                <input id="sp-fill-color" type="color" value="#1a1a1a" />
+                <button type="button" class="chip chip-black" data-color="#000000" data-target="sp-fill-color"></button>
+                <button type="button" class="chip chip-white" data-color="#ffffff" data-target="sp-fill-color"></button>
+                <span class="swatch-list"></span>
+                <button type="button" class="chip chip-add" data-add-swatch>+</button>
+              </span>
+            </div>
+            <div class="style-field">
+              <label class="style-field-head"><input type="checkbox" data-prop="stroke" checked />描邊色</label>
+              <span class="color-picks" data-color-input="sp-stroke-color">
+                <input id="sp-stroke-color" type="color" value="#ffffff" />
+                <button type="button" class="chip chip-black" data-color="#000000" data-target="sp-stroke-color"></button>
+                <button type="button" class="chip chip-white" data-color="#ffffff" data-target="sp-stroke-color"></button>
+                <span class="swatch-list"></span>
+                <button type="button" class="chip chip-add" data-add-swatch>+</button>
+              </span>
+            </div>
+            <div class="style-field">
+              <label class="style-field-head"><input type="checkbox" data-prop="stroke" checked />描邊</label>
+              <input id="sp-stroke-width" type="number" min="0" max="24" step="0.5" value="3" />
+            </div>
+            <div class="style-field">
+              <label class="style-field-head"><input type="checkbox" data-prop="lineHeight" />行高</label>
+              <input id="sp-line-height" type="number" min="0.8" max="2.4" step="0.05" value="1.15" />
+            </div>
+            <div class="style-field">
+              <label class="style-field-head"><input type="checkbox" data-prop="letterSpacing" />字距</label>
+              <input id="sp-letter-spacing" type="number" min="-8" max="24" step="0.5" value="0" />
+            </div>
+            <input id="sp-rotation" type="hidden" value="0" />
+            <input id="sp-box-w" type="hidden" value="80" />
+            <input id="sp-box-h" type="hidden" value="160" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="export-modal" class="modal" hidden>
+    <div class="sheet sheet-auto">
+      <h3>匯出</h3>
+      <p>勾選要匯出的頁面。成品會存成 PNG，放到目前專案的「匯出」資料夾。</p>
+      <div class="row-btns page-pick-actions">
+        <button type="button" id="btn-export-pages-current" class="ghost compact">僅本頁</button>
+        <label class="check"><input id="export-pages-all" type="checkbox" />全選</label>
+      </div>
+      <div id="export-pages" class="page-picks"></div>
+      <div class="row-btns end">
+        <button type="button" id="btn-export-cancel">取消</button>
+        <button type="button" id="btn-export-run" class="primary">開始匯出</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="color-popover" class="color-popover" hidden>
+    <canvas id="color-sv" width="196" height="128"></canvas>
+    <input id="color-hue" type="range" min="0" max="360" value="0" />
+    <div class="color-popover-row">
+      <span id="color-preview"></span>
+      <input id="color-hex" type="text" spellcheck="false" maxlength="7" />
+      <button type="button" id="btn-pop-swatch" class="ghost compact">加入色票</button>
+    </div>
+  </div>
+
+  <div id="toast" hidden></div>
+  <script type="module" src="/static/js/app.js"></script>
+</body>
+</html>
