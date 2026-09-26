@@ -1,5 +1,5 @@
 // --- 文字框 ---
-import { $$, state, project, ui, bag, uid, currentTexts, pageEntry, usedDialogueIds, selectedDialogueList, selectDialogues, clearDialogueSelection } from "./store.js";
+import { $$, state, project, ui, bag, uid, currentTexts, pageEntry, usedDialogueIds, selectedDialogueList, selectDialogues, clearDialogueSelection, fontFamilyCss } from "./store.js";
 import { t, toastT } from "./copy.js";
 import { pushHistory } from "./history.js";
 import { markDirty } from "./api.js";
@@ -7,6 +7,9 @@ import { applyView, rotateVec, setDialogueFilter } from "./view.js";
 import { writeStyleToForm, styleForNewText, estimateBox } from "./style.js";
 import { placedPageOf, renderDialogue, syncDialogueFromText } from "./dialogue.js";
 import { ensureFontsForTexts, loadPage } from "./pages.js";
+import { colorWithAlpha } from "./color.js";
+import { fillTextInner, clampRuns, restoreCharSel, caretOffsetFromPoint, placeCaret, caretOffset, readInnerText, clearCharSel, activeCharSel, paintCharHighlight, applyTextStroke } from "./glyphs.js";
+import { applySizeMode, measureTextMetrics } from "./boxgeom.js";
 function nextUnplacedInScope(scope) {
   const used = usedDialogueIds();
   return project.dialogue.find((d) => {
@@ -27,6 +30,7 @@ function addTextBox(item, imgX, imgY, style, offset = 0) {
     ...style,
     w: box.w,
     h: box.h,
+    sizeMode: style.vertical ? "auto-width" : "auto-height",
   };
   currentTexts().push(boxEl);
   if (item) {
@@ -173,18 +177,41 @@ function deleteSelectedTexts() {
 }
 
 function textInnerStyle(t) {
-  const jc = { left: "flex-start", center: "center", right: "flex-end" }[t.alignH] || "center";
-  const ai = t.vertical
-    ? "stretch"
-    : ({ top: "flex-start", middle: "center", bottom: "flex-end" }[t.alignV] || "center");
-  const textAlign = t.vertical
-    ? ({ top: "start", middle: "center", bottom: "end" }[t.alignV] || "center")
-    : (t.alignH || "center");
-  return { jc, ai, textAlign };
+  const h = t.alignH || "center";
+  if (t.vertical) {
+    return {
+      jc: "center",
+      ai: { left: "flex-start", center: "center", right: "flex-end" }[h] || "center",
+      textAlign: { left: "start", center: "center", right: "end" }[h] || "center",
+    };
+  }
+  return {
+    jc: { left: "flex-start", center: "center", right: "flex-end" }[h] || "center",
+    ai: "center",
+    textAlign: h,
+  };
 }
 
-function paintTextEl(el, t) {
-  const { jc, ai, textAlign } = textInnerStyle(t);
+function handleCursor(handle, rotation) {
+  const angles = { n: 0, ne: 45, e: 90, se: 135, s: 180, sw: 225, w: 270, nw: 315 };
+  const total = ((angles[handle] || 0) + (rotation || 0)) % 180;
+  const norm = total < 0 ? total + 180 : total;
+  if (norm >= 22.5 && norm < 67.5) return "nesw-resize";
+  if (norm >= 67.5 && norm < 112.5) return "ew-resize";
+  if (norm >= 112.5 && norm < 157.5) return "nwse-resize";
+  return "ns-resize";
+}
+
+function syncBoxChrome(el, t) {
+  if (!el || !t) return;
+  el.querySelectorAll(".handle[data-h]").forEach((h) => {
+    h.style.cursor = handleCursor(h.dataset.h, t.rotation);
+  });
+  el.querySelector(".box-badge")?.remove();
+}
+
+function layoutTextEl(el, t) {
+  const { jc, ai } = textInnerStyle(t);
   el.style.left = t.x + "px";
   el.style.top = t.y + "px";
   el.style.width = t.w + "px";
@@ -192,47 +219,144 @@ function paintTextEl(el, t) {
   el.style.transform = `rotate(${t.rotation}deg)`;
   el.style.justifyContent = jc;
   el.style.alignItems = ai;
+  syncBoxChrome(el, t);
+}
+
+function sizeInner(inner, t) {
+  if (!inner) return;
+  inner.style.boxSizing = "border-box";
+  inner.style.overflow = "hidden";
+  if (t.vertical) {
+    inner.style.width = "max-content";
+    inner.style.height = "100%";
+    inner.style.minWidth = "max-content";
+    inner.style.minHeight = "0";
+    inner.style.maxWidth = "none";
+    inner.style.maxHeight = "100%";
+  } else {
+    inner.style.width = "100%";
+    inner.style.height = "max-content";
+    inner.style.minWidth = "0";
+    inner.style.minHeight = "0";
+    inner.style.maxWidth = "100%";
+    inner.style.maxHeight = "none";
+  }
+}
+
+function syncBoxFields(t) {
+  const w = String(Math.round(t.w));
+  const h = String(Math.round(t.h));
+  if (ui.boxW && ui.boxW.value !== w) ui.boxW.value = w;
+  if (ui.boxH && ui.boxH.value !== h) ui.boxH.value = h;
+}
+
+function paintTextEl(el, t) {
+  const { textAlign } = textInnerStyle(t);
+  layoutTextEl(el, t);
   const inner = el.querySelector(".inner");
-  inner.style.fontFamily = `"${t.font}"`;
+  inner.style.fontFamily = fontFamilyCss(t.font);
   inner.style.fontSize = t.fontSize + "px";
   inner.style.fontWeight = t.fontWeight;
-  inner.style.color = t.color;
-  inner.style.webkitTextStroke = t.strokeWidth > 0 ? `${t.strokeWidth}px ${t.strokeColor}` : "0";
+  inner.style.color = colorWithAlpha(t.color, t.opacity);
+  applyTextStroke(inner, t.strokeWidth, t.strokeColor);
   inner.style.lineHeight = String(t.lineHeight);
   inner.style.letterSpacing = t.letterSpacing + "px";
   inner.style.writingMode = t.vertical ? "vertical-rl" : "horizontal-tb";
   inner.style.textOrientation = "mixed";
   inner.style.textAlign = textAlign;
-  if (t.vertical) {
-    inner.style.height = "100%";
-    inner.style.maxWidth = "none";
-    inner.style.width = "auto";
-  } else {
-    inner.style.width = "100%";
-    inner.style.height = "auto";
-    inner.style.maxHeight = "none";
-  }
-  inner.textContent = t.text;
+  inner.style.flex = "0 0 auto";
+  sizeInner(inner, t);
+  fillTextInner(inner, t);
 }
 
-function syncTextEl(t) {
-  const el = ui.texts.querySelector(`[data-id="${t.id}"]`);
-  if (el) {
-    el.classList.toggle("selected", state.selectedTextIds.has(t.id));
-    if (!el.classList.contains("editing")) paintTextEl(el, t);
-  } else renderTexts();
+function refreshTextPaint(t, { restyle = true } = {}) {
+  const el = ui.texts?.querySelector(`[data-id="${t.id}"]`);
+  if (!el) {
+    renderTexts();
+    return;
+  }
+  const editing = bag.inlineEdit?.id === t.id;
+  const sel = activeCharSel(t.id);
+  if (restyle) paintTextEl(el, t);
+  else {
+    layoutTextEl(el, t);
+    sizeInner(el.querySelector(".inner"), t);
+  }
+  const inner = el.querySelector(".inner");
+  if (!inner) return;
+  if (editing) {
+    inner.contentEditable = "true";
+    if (sel) restoreCharSel(inner, sel.start, sel.end);
+  }
+  if (sel) paintCharHighlight(inner, sel.start, sel.end);
 }
+
+function commitInlineText(t) {
+  if (!t || bag.inlineEdit?.id !== t.id) return t?.text || "";
+  const inner = ui.texts?.querySelector(`[data-id="${t.id}"] .inner`);
+  if (!inner) return t.text || "";
+  const next = readInnerText(inner);
+  t.text = next;
+  clampRuns(t);
+  return next;
+}
+
+function restoreEditSelection(id) {
+  const inner = ui.texts?.querySelector(`[data-id="${id}"] .inner`);
+  if (!inner) return;
+  inner.focus({ preventScroll: true });
+  const sel = bag.charSel && bag.charSel.textId === id ? bag.charSel : null;
+  if (sel) {
+    restoreCharSel(inner, sel.start, sel.end);
+    paintCharHighlight(inner, sel.start, sel.end);
+  } else if (bag.editCaret != null) {
+    placeCaret(inner, bag.editCaret);
+  }
+}
+
+function syncTextEl(t, { layoutOnly = false } = {}) {
+  const el = ui.texts.querySelector(`[data-id="${t.id}"]`);
+  if (!el) {
+    if (!layoutOnly) renderTexts();
+    return;
+  }
+  el.classList.toggle("selected", state.selectedTextIds.has(t.id));
+  if (layoutOnly) {
+    layoutTextEl(el, t);
+    const inner = el.querySelector(".inner");
+    if (inner) sizeInner(inner, t);
+    return;
+  }
+  paintTextEl(el, t);
+}
+
+const BOX_CHROME = `<i class="move-halo" aria-hidden="true"></i><div class="inner"></div><div class="sel-layer" aria-hidden="true"></div>
+    <i class="handle nw" data-h="nw"></i><i class="handle n" data-h="n"></i><i class="handle ne" data-h="ne"></i>
+    <i class="handle e" data-h="e"></i><i class="handle se" data-h="se"></i><i class="handle s" data-h="s"></i>
+    <i class="handle sw" data-h="sw"></i><i class="handle w" data-h="w"></i>
+    <i class="rot" data-h="rot"></i>`;
 
 function makeTextBoxEl(item) {
   const el = document.createElement("div");
   el.className = "text-box";
   el.dataset.id = item.id;
-  el.innerHTML = `<div class="inner"></div>
-    <i class="handle nw" data-h="nw"></i><i class="handle n" data-h="n"></i><i class="handle ne" data-h="ne"></i>
-    <i class="handle e" data-h="e"></i><i class="handle se" data-h="se"></i><i class="handle s" data-h="s"></i>
-    <i class="handle sw" data-h="sw"></i><i class="handle w" data-h="w"></i>
-    <i class="rot" data-h="rot"></i>`;
+  el.innerHTML = BOX_CHROME;
   return el;
+}
+
+function ensureBoxChrome(el) {
+  if (!el.querySelector(".move-halo")) {
+    el.insertAdjacentHTML("afterbegin", `<i class="move-halo" aria-hidden="true"></i>`);
+  }
+  if (!el.querySelector(":scope > .sel-layer")) {
+    const inner = el.querySelector(":scope > .inner");
+    const layer = document.createElement("div");
+    layer.className = "sel-layer";
+    layer.setAttribute("aria-hidden", "true");
+    if (inner?.nextSibling) el.insertBefore(layer, inner.nextSibling);
+    else el.appendChild(layer);
+  }
+  el.querySelectorAll(".edge, .box-badge, .sel-frame").forEach((node) => node.remove());
 }
 
 function renderTexts() {
@@ -251,6 +375,7 @@ function renderTexts() {
       el = makeTextBoxEl(item);
       ui.texts.appendChild(el);
     }
+    ensureBoxChrome(el);
     el.classList.toggle("selected", state.selectedTextIds.has(item.id));
     if (!el.classList.contains("editing")) paintTextEl(el, item);
     keep.add(item.id);
@@ -276,6 +401,9 @@ function selectedTexts() {
 }
 
 function selectOnly(id) {
+  if (bag.inlineEdit && bag.inlineEdit.id !== id) endInlineEdit();
+  if (!id || !state.selectedTextIds.has(id)) bag.editArmed = false;
+  if (!id || bag.charSel?.textId !== id) clearCharSel();
   state.selectedTextId = id || null;
   state.selectedTextIds = new Set(id ? [id] : []);
 }
@@ -417,58 +545,124 @@ async function focusDialoguePlacement(d, { pan, keepSelection = false } = {}) {
 }
 
 function refreshSelection() {
+  if (bag.charSel && !state.selectedTextIds.has(bag.charSel.textId)) clearCharSel();
   $$(".text-box", ui.texts).forEach((el) => {
     el.classList.toggle("selected", state.selectedTextIds.has(el.dataset.id));
   });
   syncLibraryFromTexts();
 }
 
-function startInlineEdit(box) {
-  const t = currentTexts().find((x) => x.id === box.dataset.id);
+function scrubEditDom() {
+  $$(".text-box.editing", ui.texts).forEach((el) => el.classList.remove("editing"));
+  $$(".inner[contenteditable], .inner[contenteditable='true']", ui.texts).forEach((el) => {
+    el.contentEditable = "false";
+    el.removeAttribute("contenteditable");
+  });
+}
+
+function endInlineEdit() {
+  const finish = bag.inlineEdit?.finish;
+  const stray = ui.texts?.querySelector(".text-box.editing, .inner[contenteditable='true']");
+  if (!finish && !stray) {
+    bag.editArmed = false;
+    return;
+  }
+  bag.inlineEdit = null;
+  bag.editArmed = false;
+  if (finish) finish();
+  scrubEditDom();
+}
+
+function startInlineEdit(box, at) {
+  const t = currentTexts().find((x) => x.id === box?.dataset.id);
   if (!t) return;
+  if (bag.inlineEdit?.id === t.id) return;
+  if (bag.inlineEdit) endInlineEdit();
   selectOnly(t.id);
   refreshSelection();
   writeStyleToForm(t);
   const inner = box.querySelector(".inner");
   if (!inner) return;
   box.classList.add("editing", "selected");
+  sizeInner(inner, t);
   inner.contentEditable = "true";
   inner.spellcheck = false;
-  inner.focus();
-  const range = document.createRange();
-  range.selectNodeContents(inner);
-  const sel = window.getSelection();
-  sel.removeAllRanges();
-  sel.addRange(range);
+  inner.focus({ preventScroll: true });
+  if (at && Number.isFinite(at.x) && Number.isFinite(at.y)) {
+    placeCaret(inner, caretOffsetFromPoint(inner, at.x, at.y));
+  }
   let done = false;
-  let cancelled = false;
+  const original = t.text;
+  const ac = new AbortController();
+  const { signal } = ac;
   const finish = () => {
     if (done) return;
     done = true;
+    ac.abort();
+    if (bag.inlineEdit?.id === t.id) bag.inlineEdit = null;
+    bag.editArmed = false;
     inner.contentEditable = "false";
+    inner.removeAttribute("contenteditable");
     box.classList.remove("editing");
-    if (cancelled) {
-      paintTextEl(box, t);
-      return;
-    }
-    const next = (inner.innerText || "").replace(/\r/g, "");
-    if (next !== t.text) {
+    const next = readInnerText(inner);
+    t.text = next;
+    clampRuns(t);
+    if (next !== original) {
       pushHistory({ paint: false, projectData: true });
-      t.text = next;
       syncDialogueFromText(t);
       markDirty();
     }
     paintTextEl(box, t);
   };
-  inner.addEventListener("blur", finish, { once: true });
+  let composing = false;
+  let rebuilding = false;
+  const liveGrow = () => {
+    if (rebuilding) return;
+    const caret = caretOffset(inner);
+    t.text = readInnerText(inner);
+    clampRuns(t);
+    rebuilding = true;
+    fillTextInner(inner, t);
+    placeCaret(inner, caret);
+    rebuilding = false;
+    applySizeMode(t, measureTextMetrics(t, { w: t.w, h: t.h }));
+    layoutTextEl(box, t);
+    sizeInner(inner, t);
+    syncBoxFields(t);
+    const sel = bag.charSel && bag.charSel.textId === t.id ? bag.charSel : null;
+    if (sel) paintCharHighlight(inner, sel.start, sel.end);
+  };
+  inner.addEventListener("dragstart", (ev) => ev.preventDefault(), { signal });
+  inner.addEventListener("drop", (ev) => ev.preventDefault(), { signal });
+  inner.addEventListener("compositionstart", () => {
+    composing = true;
+  }, { signal });
+  inner.addEventListener("compositionend", () => {
+    composing = false;
+    liveGrow();
+  }, { signal });
+  inner.addEventListener("input", () => {
+    if (composing) return;
+    liveGrow();
+  }, { signal });
   inner.addEventListener("keydown", (ev) => {
     ev.stopPropagation();
     if (ev.key === "Escape") {
       ev.preventDefault();
-      cancelled = true;
-      inner.blur();
+      finish();
     }
-  });
+  }, { signal });
+  const onOutside = (ev) => {
+    if (bag.drag) return;
+    const target = ev.target;
+    if (!(target instanceof Element)) return;
+    if (box.contains(target)) return;
+    if (target.closest(".side, .topbar, .modal, .ctx-menu, #toast, header")) return;
+    finish();
+  };
+  window.addEventListener("mousedown", onOutside, { signal });
+  bag.inlineEdit = { id: t.id, finish };
+  bag.editArmed = false;
 }
 
 function copySelectedTexts(fromCut = false) {
@@ -541,6 +735,7 @@ export {
   deleteSelectedTexts,
   textInnerStyle,
   paintTextEl,
+  refreshTextPaint,
   syncTextEl,
   renderTexts,
   selectedText,
@@ -554,6 +749,10 @@ export {
   focusDialoguePlacement,
   refreshSelection,
   startInlineEdit,
+  endInlineEdit,
+  commitInlineText,
+  restoreEditSelection,
+  syncBoxChrome,
   copySelectedTexts,
   cutSelectedTexts,
   pasteTexts,

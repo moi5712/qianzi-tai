@@ -36,6 +36,13 @@ function normalizeHex(hex) {
   return rgbToHex(rgb.r, rgb.g, rgb.b);
 }
 
+function colorWithAlpha(hex, opacity) {
+  const { r, g, b } = hexToRgb(hex);
+  const a = clamp(Number(opacity), 0, 100);
+  if (!Number.isFinite(a) || a >= 100) return normalizeHex(hex);
+  return `rgba(${r}, ${g}, ${b}, ${Math.round(a) / 100})`;
+}
+
 function normalizeSwatchList(list) {
   if (!Array.isArray(list)) return [];
   return [...new Set(list.map((c) => normalizeHex(String(c || ""))).filter(Boolean))];
@@ -89,7 +96,113 @@ function applyColorValue(id, hex) {
   input.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
+const HIDDEN_CHIPS_KEY = "lettering-hidden-chips";
+
+function hiddenDefaultChips() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(HIDDEN_CHIPS_KEY) || "{}");
+    if (raw && typeof raw === "object") return raw;
+  } catch {
+    /* ignore */
+  }
+  return {};
+}
+
+function isDefaultChipHidden(target, hex) {
+  const key = swatchStoreKey(target);
+  return (hiddenDefaultChips()[key] || []).includes(normalizeHex(hex));
+}
+
+function hideDefaultChip(target, hex) {
+  const all = hiddenDefaultChips();
+  const key = swatchStoreKey(target);
+  all[key] = [...new Set([...(all[key] || []), normalizeHex(hex)])];
+  try {
+    localStorage.setItem(HIDDEN_CHIPS_KEY, JSON.stringify(all));
+  } catch {
+    /* ignore */
+  }
+}
+
+function applyHiddenDefaultChips() {
+  $$(".chip[data-color][data-target]").forEach((btn) => {
+    if (isDefaultChipHidden(btn.dataset.target, btn.dataset.color)) btn.remove();
+  });
+}
+
+function removeDefaultChip(hex, target) {
+  const key = swatchStoreKey(target);
+  const color = normalizeHex(hex);
+  hideDefaultChip(target, color);
+  $$(".chip[data-color][data-target]").forEach((btn) => {
+    if (swatchStoreKey(btn.dataset.target) === key && normalizeHex(btn.dataset.color) === color) {
+      btn.remove();
+    }
+  });
+  toastT("swatchRemove");
+}
+
+function hideSwatchMenu() {
+  const menu = $("#swatch-menu");
+  if (menu) menu.hidden = true;
+}
+
+function showSwatchMenu(chip, hex, target, kind) {
+  const menu = $("#swatch-menu");
+  if (!menu || !chip) return;
+  if (menu.parentElement !== document.body) document.body.appendChild(menu);
+  menu.dataset.hex = hex;
+  menu.dataset.target = target;
+  menu.dataset.kind = kind || "swatch";
+  menu.hidden = false;
+  const r = chip.getBoundingClientRect();
+  const w = menu.offsetWidth || 72;
+  const h = menu.offsetHeight || 36;
+  let left = r.left + (r.width - w) / 2;
+  let top = r.top - h - 8;
+  if (top < 8) top = r.bottom + 8;
+  left = Math.max(8, Math.min(left, innerWidth - w - 8));
+  menu.style.left = left + "px";
+  menu.style.top = top + "px";
+}
+
+function bindChipMenu(btn, hex, target, kind) {
+  if (!btn || btn.dataset.swatchMenuBound) return;
+  btn.dataset.swatchMenuBound = "1";
+  btn.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    showSwatchMenu(btn, hex, target, kind);
+  });
+}
+
+function bindSwatchMenu() {
+  const menu = $("#swatch-menu");
+  const del = $("#swatch-menu-delete");
+  if (!menu || !del || menu.dataset.bound) return;
+  menu.dataset.bound = "1";
+  del.addEventListener("click", () => {
+    if (menu.hidden) return;
+    if (menu.dataset.kind === "default") removeDefaultChip(menu.dataset.hex, menu.dataset.target);
+    else removeSwatch(menu.dataset.hex, menu.dataset.target);
+    hideSwatchMenu();
+  });
+  document.addEventListener("pointerdown", (e) => {
+    if (menu.hidden || menu.contains(e.target) || e.button === 2) return;
+    hideSwatchMenu();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") hideSwatchMenu();
+  });
+  window.addEventListener("resize", hideSwatchMenu);
+  $$(".chip[data-color][data-target]").forEach((btn) => {
+    bindChipMenu(btn, normalizeHex(btn.dataset.color), btn.dataset.target, "default");
+  });
+  applyHiddenDefaultChips();
+}
+
 function renderSwatches() {
+  hideSwatchMenu();
   $$(".swatch-list").forEach((list) => {
     const target = list.closest(".color-picks")?.dataset.colorInput || "fill-color";
     list.innerHTML = "";
@@ -100,11 +213,11 @@ function renderSwatches() {
       btn.style.background = hex;
       btn.addEventListener("pointerenter", () => setStatusHint(t("hints.swatchRemove", { hex })));
       btn.addEventListener("pointerleave", () => setStatusHint(toolHint()));
-      btn.addEventListener("click", () => applyColorValue(target, hex));
-      btn.addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-        removeSwatch(hex, target);
+      btn.addEventListener("click", () => {
+        hideSwatchMenu();
+        applyColorValue(target, hex);
       });
+      bindChipMenu(btn, hex, target, "swatch");
       list.appendChild(btn);
     }
   });
@@ -153,6 +266,7 @@ function hsvToRgb(h, s, v) {
 }
 
 function bindColorPopover() {
+  bindSwatchMenu();
   const pop = $("#color-popover");
   const sv = $("#color-sv");
   const hueEl = $("#color-hue");
@@ -315,6 +429,7 @@ function fillRange(el) {
 
 export {
   hexToRgb,
+  colorWithAlpha,
   setColorTarget,
   renderSwatches,
   addSwatch,

@@ -8,13 +8,16 @@ env/
 Thumbs.db
 desktop.ini
 
-# 本機設定與專案資料（含 API Key、頁面、字體）
+# 本機應用設定（API Key、最近專案、使用者字體）
 data/settings.json
 data/workspace.json
+data/fonts/
+data/fonts.json
+
+# 舊版誤放在工具目錄的專案資料
 data/project.json
 data/erase/
 data/thumbs/
-data/fonts/
 *.otf
 *.ttf
 *.woff

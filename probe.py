@@ -6,6 +6,7 @@ import base64
 import io
 import re
 import secrets
+from pathlib import Path
 
 from auto_letter import chat_complete
 
@@ -114,6 +115,54 @@ def test_connection(settings: dict) -> dict:
     if (content or "").strip():
         return {"ok": True, "code": "connected"}
     return {"ok": False, "code": "no_content"}
+
+
+def _jp_probe_font(size: int):
+    from PIL import ImageFont
+
+    for path in (
+        Path(r"C:\Windows\Fonts\msgothic.ttc"),
+        Path(r"C:\Windows\Fonts\YuGothM.ttc"),
+        Path(r"C:\Windows\Fonts\meiryo.ttc"),
+        Path(r"C:\Windows\Fonts\msyh.ttc"),
+        Path(r"C:\Windows\Fonts\mingliu.ttc"),
+        Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"),
+        Path("/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc"),
+    ):
+        try:
+            if path.is_file():
+                return ImageFont.truetype(str(path), size)
+        except OSError:
+            continue
+    return _probe_font(size)
+
+
+def test_local_ocr() -> dict:
+    try:
+        from local_ocr import get_engine, _image_source, _run_ocr
+        from PIL import Image, ImageDraw
+    except ImportError:
+        return {"ok": False, "code": "need_local_ocr"}
+    try:
+        im = Image.new("RGB", (400, 160), (248, 248, 248))
+        draw = ImageDraw.Draw(im)
+        font = _jp_probe_font(72)
+        draw.text((48, 36), "試験", fill=(20, 20, 20), font=font)
+        _run_ocr(get_engine(), _image_source(im))
+        return {"ok": True, "code": "local_ocr_ok"}
+    except ValueError as err:
+        if "尚未安裝" in str(err):
+            return {"ok": False, "code": "need_local_ocr"}
+        return {"ok": False, "code": classify_probe_error(err)}
+    except Exception as err:
+        return {"ok": False, "code": classify_probe_error(err)}
+
+
+def test_ocr(settings: dict) -> dict:
+    engine = str((settings or {}).get("ocrEngine") or "local").strip().lower()
+    if engine != "api":
+        return test_local_ocr()
+    return test_vision(settings)
 
 
 def test_vision(settings: dict) -> dict:

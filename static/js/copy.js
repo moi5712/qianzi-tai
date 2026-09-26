@@ -47,11 +47,13 @@ export function toast(msg, ms) {
 
 export function probeToast(kind, data) {
   if (data && data.ok) {
-    toastT(kind === "vision" ? "visionOk" : "apiOk");
+    if (data.code === "local_ocr_ok") toastT("localOcrOk");
+    else toastT(kind === "vision" ? "visionOk" : "apiOk");
     return;
   }
   const code = (data && data.code) || "unknown";
-  const title = t(kind === "vision" ? "probe.visionFail" : "probe.apiFail");
+  const local = code === "need_local_ocr" || String(code).startsWith("local_ocr");
+  const title = t(local ? "probe.localFail" : kind === "vision" ? "probe.visionFail" : "probe.apiFail");
   const reason = t("probe.reasons." + code) || t("probe.reasons.unknown");
   const action = t("probe.actions." + code) || t("probe.actions.unknown");
   toast(`${title}${reason}${action}`);
@@ -81,7 +83,7 @@ export function bindHint(el, id) {
 
 export async function loadCopy() {
   try {
-    const res = await fetch("/copy.json", { cache: "no-store" });
+    const res = await fetch("/copy.json");
     if (!res.ok) throw new Error(String(res.status));
     const data = await res.json();
     bag.COPY = data && typeof data === "object" ? data : {};

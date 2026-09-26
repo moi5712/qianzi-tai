@@ -1,7 +1,7 @@
 // --- AI 翻譯 ---
-import { $, $$, state, project, ui, bag, uid, pageEntry, selectDialogues } from "./store.js";
+import { $, $$, state, project, ui, bag, uid, pageEntry, selectDialogues, pageMediaUrl } from "./store.js";
 import { t, toast, toastT, confirmT } from "./copy.js";
-import { apiGet, apiJson, markDirty } from "./api.js";
+import { apiGet, apiJson, markDirty, saveEraseNow } from "./api.js";
 import { pushHistory } from "./history.js";
 import { renderTexts } from "./text.js";
 import { renderDialogue, pageLabel } from "./dialogue.js";
@@ -33,6 +33,7 @@ function collectAutoOptions() {
     includeSfx: ui.autoSfx.checked,
     doBreak: ui.autoBreak.checked,
     placeOnCanvas: ui.autoPlace.checked,
+    autoErase: !!(ui.autoErase && ui.autoErase.checked),
   };
 }
 
@@ -54,6 +55,7 @@ function fillAutoOptions(settings) {
   ui.autoSfx.checked = !!settings.includeSfx;
   ui.autoBreak.checked = settings.doBreak !== false;
   ui.autoPlace.checked = settings.placeOnCanvas !== false;
+  if (ui.autoErase) ui.autoErase.checked = settings.autoErase !== false;
 }
 
 function pagePickMaster(container) {
@@ -178,9 +180,15 @@ function renderAutoPreview(items) {
   ui.autoPreview.innerHTML = "";
   items.forEach((it) => {
     const art = document.createElement("article");
-    art.className = "auto-item";
+    art.className = "auto-item" + (it.lowConf ? " low-conf" : "");
     const head = document.createElement("header");
-    head.textContent = `${pageLabel(it.pageName)}　#${it.order}`;
+    head.append(document.createTextNode(`${pageLabel(it.pageName)}　#${it.order}`));
+    if (it.lowConf) {
+      const mark = document.createElement("span");
+      mark.className = "low-conf-mark";
+      mark.textContent = t("log.needReview");
+      head.append(" ", mark);
+    }
     const src = document.createElement("div");
     src.className = "src";
     src.textContent = it.src || "";
@@ -195,6 +203,114 @@ function renderAutoPreview(items) {
   });
 }
 
+function collectGlossary() {
+  if (!Array.isArray(project.glossary)) project.glossary = [];
+  return project.glossary
+    .map((row) => ({
+      src: String(row?.src || "").trim(),
+      text: String(row?.text || "").trim(),
+    }))
+    .filter((row) => row.src && row.text);
+}
+
+function recentTranslationMemory() {
+  const rows = [];
+  for (const d of project.dialogue || []) {
+    const src = String(d.src || "").trim();
+    const text = String(d.text || "").trim();
+    if (!src || !text || text === src) continue;
+    rows.push({ src, text });
+  }
+  return rows.slice(-20);
+}
+
+function glossaryToText(rows) {
+  return (rows || [])
+    .filter((row) => String(row?.src || "").trim() || String(row?.text || "").trim())
+    .map((row) => `${String(row.src || "").trim()}=${String(row.text || "").trim()}`)
+    .join("\n");
+}
+
+function parseGlossaryText(text) {
+  return String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const parts = line.split(/\s*(?:=|→|｜|\t)\s*/);
+      return { src: parts[0] || "", text: parts.slice(1).join("=") };
+    });
+}
+
+function syncGlossaryText() {
+  if (!ui.autoGlossaryText) return;
+  if (document.activeElement === ui.autoGlossaryText) return;
+  ui.autoGlossaryText.value = glossaryToText(project.glossary);
+}
+
+function renderGlossary(opts = {}) {
+  if (!ui.autoGlossary) return;
+  if (!Array.isArray(project.glossary)) project.glossary = [];
+  const rows = project.glossary.length ? project.glossary.slice() : [{ src: "", text: "" }];
+  ui.autoGlossary.innerHTML = "";
+  rows.forEach((row, i) => {
+    const line = document.createElement("div");
+    line.className = "glossary-row";
+    const src = document.createElement("input");
+    src.type = "text";
+    src.value = row.src || "";
+    src.placeholder = t("placeholders.glossarySrc");
+    src.spellcheck = false;
+    src.addEventListener("input", () => {
+      if (!project.glossary[i]) project.glossary[i] = { src: "", text: "" };
+      project.glossary[i].src = src.value;
+      markDirty();
+      syncGlossaryText();
+    });
+    const text = document.createElement("input");
+    text.type = "text";
+    text.value = row.text || "";
+    text.placeholder = t("placeholders.glossaryText");
+    text.spellcheck = false;
+    text.addEventListener("input", () => {
+      if (!project.glossary[i]) project.glossary[i] = { src: "", text: "" };
+      project.glossary[i].text = text.value;
+      markDirty();
+      syncGlossaryText();
+    });
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "ghost compact";
+    del.textContent = t("ui.glossaryDel");
+    del.addEventListener("click", () => {
+      if (project.glossary.length) project.glossary.splice(i, 1);
+      markDirty();
+      renderGlossary();
+    });
+    line.append(src, text, del);
+    ui.autoGlossary.appendChild(line);
+  });
+  if (!opts.skipText) syncGlossaryText();
+}
+
+function addGlossaryRow() {
+  if (!Array.isArray(project.glossary)) project.glossary = [];
+  const last = project.glossary[project.glossary.length - 1];
+  if (last && !String(last.src || "").trim() && !String(last.text || "").trim()) {
+    renderGlossary();
+    return;
+  }
+  project.glossary.push({ src: "", text: "" });
+  markDirty();
+  renderGlossary();
+}
+
+function onGlossaryTextInput() {
+  project.glossary = parseGlossaryText(ui.autoGlossaryText.value);
+  markDirty();
+  renderGlossary({ skipText: true });
+}
+
 async function loadSavedSettings() {
   const res = await apiGet("/api/settings");
   const data = await res.json();
@@ -207,13 +323,28 @@ async function saveApiSettings() {
   return data.settings;
 }
 
+function setSettingsTab(name) {
+  const tab = name === "prompts" || name === "glossary" ? name : "api";
+  $$("[data-settings-tab]").forEach((btn) => {
+    const on = btn.dataset.settingsTab === tab;
+    btn.classList.toggle("on", on);
+    btn.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  $$(".settings-pane").forEach((pane) => {
+    pane.hidden = pane.dataset.pane !== tab;
+  });
+  if (tab === "glossary") renderGlossary();
+}
+
 async function openSettingsModal() {
   ui.settingsModal.hidden = false;
+  setSettingsTab("api");
   try {
     fillApiForm(await loadSavedSettings());
   } catch (err) {
     toastT("settingsLoadFail", { msg: err.message });
   }
+  renderGlossary();
 }
 
 async function openAutoModal() {
@@ -227,10 +358,26 @@ async function openAutoModal() {
   }
 }
 
+function isAbortError(err) {
+  return !!(err && (err.name === "AbortError" || err.code === 20));
+}
+
 function setAutoBusy(busy) {
   bag.autoBusy = busy;
   ui.btnAutoRun.disabled = busy;
   ui.btnAutoApply.disabled = busy;
+  if (ui.btnAutoCancel) ui.btnAutoCancel.textContent = busy ? t("log.stop") : t("log.close");
+}
+
+function closeAutoModal() {
+  const ac = bag.autoAbort;
+  const wasBusy = bag.autoBusy;
+  if (ac) ac.abort();
+  bag.autoAbort = null;
+  setAutoBusy(false);
+  ui.btnAutoRun.textContent = t("log.start");
+  ui.autoModal.hidden = true;
+  if (wasBusy) toastT("autoCancelled");
 }
 
 function setSettingsBusy(busy) {
@@ -262,23 +409,28 @@ async function runAutoPipeline() {
   const useLocal = (saved.ocrEngine || "local") !== "api";
   if (names.length > 3 && !confirmT("confirm.autoMany", { n: names.length, extra: useLocal ? t("confirm.autoManyLocal") : "" })) return;
   resetAutoPanels();
+  const ac = new AbortController();
+  bag.autoAbort = ac;
+  const { signal } = ac;
   setAutoBusy(true);
-    ui.btnAutoRun.textContent = t("log.running");
+  ui.btnAutoRun.textContent = t("log.running");
   try {
-    await apiJson("/api/settings", { settings: collectAutoOptions() });
+    await apiJson("/api/settings", { settings: collectAutoOptions() }, { signal });
     const includeSfx = ui.autoSfx.checked;
     const collected = [];
     for (let i = 0; i < names.length; i++) {
+      if (signal.aborted) throw new DOMException("Aborted", "AbortError");
       const name = names[i];
       autoLog(t("log.recognize", { i: i + 1, n: names.length, name }));
       try {
-        const res = await apiJson("/api/auto/recognize", { pageName: name, includeSfx });
+        const res = await apiJson("/api/auto/recognize", { pageName: name, includeSfx }, { signal });
         const bubbles = res.bubbles || [];
         autoLog(t("log.found", { n: bubbles.length }));
         if (res.warning) autoLog("　" + res.warning);
         if (!bubbles.length && res.rawPreview) autoLog(t("log.modelRaw", { text: res.rawPreview }));
-        for (const b of bubbles) collected.push({ ...b, pageName: name });
+        for (const b of bubbles) collected.push({ ...b, pageName: name, pageW: res.width, pageH: res.height });
       } catch (err) {
+        if (isAbortError(err)) throw err;
         autoLog(t("log.fail", { msg: err.message }));
       }
     }
@@ -294,25 +446,33 @@ async function runAutoPipeline() {
     } else {
       autoLog(t("log.translateStart", { n: collected.length }));
       const chunkSize = 6;
+      const glossary = collectGlossary();
+      const runMemory = [];
       for (let i = 0; i < collected.length; i += chunkSize) {
+        if (signal.aborted) throw new DOMException("Aborted", "AbortError");
         const chunk = collected.slice(i, i + chunkSize);
         autoLog(t("log.translateChunk", { a: i + 1, b: Math.min(i + chunk.length, collected.length), n: collected.length }));
         try {
           const res = await apiJson("/api/auto/translate", {
             items: chunk,
             doBreak: ui.autoBreak.checked,
-          });
+            glossary,
+            memory: [...recentTranslationMemory(), ...runMemory],
+          }, { signal });
           const byId = new Map(
             (res.items || []).map((it) => [it.id || `${it.pageName}#${it.order}`, it])
           );
           for (const src of chunk) {
             const hit = byId.get(src.pageName + "#" + src.order) || byId.get(String(src.order));
+            const text = (hit && hit.text) || src.src;
             translated.push({
               ...src,
-              text: (hit && hit.text) || src.src,
+              text,
             });
+            if (src.src && text && text !== src.src) runMemory.push({ src: src.src, text });
           }
         } catch (err) {
+          if (isAbortError(err)) throw err;
           autoLog(t("log.translateFail", { msg: err.message }));
           for (const src of chunk) translated.push({ ...src, text: src.src });
         }
@@ -324,11 +484,15 @@ async function runAutoPipeline() {
     autoLog(t("log.done"));
     toastT("recognizeDone", { n: bag.autoResults.length });
   } catch (err) {
+    if (isAbortError(err) || signal.aborted) return;
     autoLog(t("log.abort", { msg: err.message }));
     toast(err.message);
   } finally {
-    setAutoBusy(false);
-    ui.btnAutoRun.textContent = t("log.start");
+    if (bag.autoAbort === ac) bag.autoAbort = null;
+    if (!bag.autoAbort) {
+      setAutoBusy(false);
+      ui.btnAutoRun.textContent = t("log.start");
+    }
   }
 }
 
@@ -344,12 +508,110 @@ function bubbleIsVertical(item) {
   return true;
 }
 
-function applyAutoResults() {
+function paddedBox(item, imgW, imgH) {
+  const padX = Math.max(4, (Number(item.w) || 0) * 0.12);
+  const padY = Math.max(4, (Number(item.h) || 0) * 0.12);
+  const x = Math.max(0, (Number(item.x) || 0) - padX);
+  const y = Math.max(0, (Number(item.y) || 0) - padY);
+  return {
+    x,
+    y,
+    w: Math.min(imgW - x, (Number(item.w) || 0) + padX * 2),
+    h: Math.min(imgH - y, (Number(item.h) || 0) + padY * 2),
+  };
+}
+
+function sampleFill(ctx, box, imgW, imgH) {
+  const pts = [
+    [box.x + 2, box.y + 2],
+    [box.x + box.w - 3, box.y + 2],
+    [box.x + 2, box.y + box.h - 3],
+    [box.x + box.w - 3, box.y + box.h - 3],
+  ];
+  const samples = [];
+  for (const [x, y] of pts) {
+    const px = Math.min(imgW - 1, Math.max(0, Math.floor(x)));
+    const py = Math.min(imgH - 1, Math.max(0, Math.floor(y)));
+    try {
+      const d = ctx.getImageData(px, py, 1, 1).data;
+      samples.push({ r: d[0], g: d[1], b: d[2] });
+    } catch {
+      /* ignore */
+    }
+  }
+  if (!samples.length) return "#ffffff";
+  samples.sort((a, b) => b.r + b.g + b.b - (a.r + a.g + a.b));
+  const c = samples[0];
+  if (c.r + c.g + c.b < 360) return "#ffffff";
+  return `rgb(${c.r},${c.g},${c.b})`;
+}
+
+function decodeImage(src) {
+  const img = new Image();
+  img.src = src;
+  return img.decode().then(() => img);
+}
+
+async function writeErasePage(pageName, boxes) {
+  const img = await decodeImage(pageMediaUrl(pageName));
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (pageName === state.pageName && ui.paint) ctx.drawImage(ui.paint, 0, 0);
+  else {
+    try {
+      const stem = pageName.replace(/\.[^.]+$/, "");
+      ctx.drawImage(await decodeImage("/api/erase/" + encodeURIComponent(stem) + ".png?t=" + Date.now()), 0, 0);
+    } catch {
+      /* none */
+    }
+  }
+  const sample = document.createElement("canvas");
+  sample.width = w;
+  sample.height = h;
+  const sctx = sample.getContext("2d");
+  sctx.drawImage(img, 0, 0);
+  for (const item of boxes) {
+    const box = paddedBox(item, w, h);
+    if (box.w < 4 || box.h < 4) continue;
+    ctx.fillStyle = sampleFill(sctx, box, w, h);
+    ctx.fillRect(box.x, box.y, box.w, box.h);
+  }
+  if (pageName === state.pageName && ui.paintCtx) {
+    ui.paintCtx.clearRect(0, 0, ui.paint.width, ui.paint.height);
+    ui.paintCtx.drawImage(canvas, 0, 0);
+    state.paintDirty = true;
+    await saveEraseNow();
+    return;
+  }
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+  if (!blob) return;
+  const stem = pageName.replace(/\.[^.]+$/, "");
+  await fetch("/api/erase/" + encodeURIComponent(stem) + ".png", { method: "POST", body: blob });
+}
+
+async function writeEraseForResults(items) {
+  const byPage = new Map();
+  for (const item of items || []) {
+    if (!item.pageName || !(Number(item.w) > 0 && Number(item.h) > 0)) continue;
+    if (!byPage.has(item.pageName)) byPage.set(item.pageName, []);
+    byPage.get(item.pageName).push(item);
+  }
+  for (const [pageName, boxes] of byPage) {
+    await writeErasePage(pageName, boxes);
+  }
+}
+
+async function applyAutoResults() {
   if (!bag.autoResults.length) {
     toastT("noWrite");
     return;
   }
-  pushHistory({ paint: false, projectData: true, allPages: true });
+  const doErase = !!(ui.autoErase && ui.autoErase.checked);
+  pushHistory({ paint: doErase, projectData: true, allPages: true });
   const place = ui.autoPlace.checked;
   let n = 0;
   for (const item of bag.autoResults) {
@@ -380,6 +642,13 @@ function applyAutoResults() {
     if (item.pageName) state.collapsedFolders.delete(item.pageName);
     n++;
   }
+  if (doErase) {
+    try {
+      await writeEraseForResults(bag.autoResults);
+    } catch (err) {
+      toast(err.message);
+    }
+  }
   if (!state.selectedDialogueId && project.dialogue[0]) {
     selectDialogues([project.dialogue[0].id]);
   }
@@ -398,7 +667,11 @@ export {
   saveApiSettings,
   openSettingsModal,
   openAutoModal,
+  closeAutoModal,
   setSettingsBusy,
   runAutoPipeline,
   applyAutoResults,
+  addGlossaryRow,
+  onGlossaryTextInput,
+  setSettingsTab,
 };

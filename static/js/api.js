@@ -7,11 +7,12 @@ async function apiGet(url) {
   return res;
 }
 
-async function apiJson(url, payload) {
+async function apiJson(url, payload, opts) {
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload || {}),
+    signal: opts && opts.signal,
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.ok === false) throw new Error(data.error || url + " " + t("ui.requestFail"));
@@ -23,6 +24,7 @@ async function saveProject() {
     dialogue: project.dialogue,
     pages: project.pages,
     defaultStyle: project.defaultStyle,
+    glossary: project.glossary || [],
     pageName: state.pageName,
     pageOrder: state.pages.map((p) => p.name),
     selectedDialogueId: state.selectedDialogueId,
@@ -54,6 +56,8 @@ async function saveEraseNow() {
   const res = await fetch("/api/erase/" + encodeURIComponent(stem) + ".png", { method: "POST", body: blob });
   if (!res.ok) return;
   state.paintDirty = false;
+  const page = state.pages.find((p) => p.name === state.pageName);
+  if (page) page.erase = "/api/erase/" + encodeURIComponent(stem) + ".png?v=" + Date.now();
 }
 
 function markDirty() {

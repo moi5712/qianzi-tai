@@ -2,13 +2,9 @@
 import { state, ui, pageEntry, pageMediaUrl } from "./store.js";
 import { ensureFontsForTexts } from "./pages.js";
 import { paintTextEl } from "./text.js";
+import { colorWithAlpha } from "./color.js";
+import { tokenizeText, toTcyText, charStyleAt, rangeForOffsets } from "./glyphs.js";
 
-const SIDEWAYS_IN_VERTICAL = new Set([
-  0x002d, 0x007e, 0x00ad, 0x2010, 0x2011, 0x2012, 0x2013, 0x2014, 0x2015,
-  0x2025, 0x2026, 0x2027, 0x22ee, 0x22ef, 0x2500, 0x2501, 0x2574, 0x2576,
-  0x2578, 0x257a, 0x30a0, 0x30fc, 0x301c, 0x3030, 0xfe31, 0xfe32, 0xfe58,
-  0xfe63, 0xff0d, 0xff5e, 0xff70,
-]);
 function nextFrame() {
   return new Promise((resolve) => requestAnimationFrame(resolve));
 }
@@ -21,52 +17,50 @@ function makeMeasureBox(t) {
   return el;
 }
 
-function isSidewaysInVertical(ch) {
-  const cp = ch.codePointAt(0);
-  if (SIDEWAYS_IN_VERTICAL.has(cp)) return true;
-  if (cp >= 0x41 && cp <= 0x5a) return true;
-  if (cp >= 0x61 && cp <= 0x7a) return true;
-  if (cp >= 0x21 && cp <= 0x2f) return true;
-  if (cp >= 0x3a && cp <= 0x40) return true;
-  if (cp >= 0x5b && cp <= 0x60) return true;
-  if (cp >= 0x7b && cp <= 0x7e) return true;
-  return false;
+function drawStyledText(ctx, style, text, sideways, boxW, boxH) {
+  ctx.font = `${style.fontWeight} ${style.fontSize}px "${style.font}"`;
+  ctx.fillStyle = colorWithAlpha(style.color, style.opacity);
+  ctx.strokeStyle = style.strokeColor;
+  ctx.lineWidth = Math.max(0.01, (style.strokeWidth || 0) * 2);
+  const tw = ctx.measureText(text).width || 1;
+  const fitW = boxW > 0 ? boxW / tw : 1;
+  const fitH = boxH > 0 ? boxH / style.fontSize : 1;
+  const fit = Math.min(1, fitW, fitH);
+  ctx.save();
+  if (sideways) ctx.rotate(Math.PI / 2);
+  if (fit < 1) ctx.scale(fit, fit);
+  if (style.strokeWidth > 0) ctx.strokeText(text, 0, 0);
+  ctx.fillText(text, 0, 0);
+  ctx.restore();
 }
 
 function drawGlyphsFromBox(ctx, t, el, origin, scaleX, scaleY) {
   const inner = el.querySelector(".inner");
-  const node = inner?.firstChild;
-  if (!node || node.nodeType !== Node.TEXT_NODE || !t.text) return;
+  if (!inner || !t.text) return;
   ctx.save();
   ctx.translate(t.x + t.w / 2, t.y + t.h / 2);
   ctx.rotate((t.rotation * Math.PI) / 180);
   ctx.translate(-(t.x + t.w / 2), -(t.y + t.h / 2));
-  ctx.font = `${t.fontWeight} ${t.fontSize}px "${t.font}"`;
-  ctx.fillStyle = t.color;
-  ctx.strokeStyle = t.strokeColor;
-  ctx.lineWidth = Math.max(0.01, t.strokeWidth * 2);
   ctx.lineJoin = "round";
   ctx.miterLimit = 2;
   ctx.textBaseline = "middle";
   ctx.textAlign = "center";
-  let offset = 0;
-  for (const ch of t.text) {
-    const start = offset;
-    offset += ch.length;
-    if (ch === "\n" || ch === "\r") continue;
-    const range = document.createRange();
-    range.setStart(node, start);
-    range.setEnd(node, offset);
-    const r = range.getBoundingClientRect();
+  for (const tok of tokenizeText(t.text, t.vertical)) {
+    if (tok.text === "\n" || tok.text === "\r") continue;
+    let r;
+    try {
+      r = rangeForOffsets(inner, tok.start, tok.end).getBoundingClientRect();
+    } catch {
+      continue;
+    }
     if (r.width <= 0 && r.height <= 0) continue;
     const x = (r.left - origin.left + r.width / 2) * scaleX;
     const y = (r.top - origin.top + r.height / 2) * scaleY;
-    const sideways = t.vertical && isSidewaysInVertical(ch);
+    const style = charStyleAt(t, tok.start);
+    const sideways = t.vertical && tok.sideways;
     ctx.save();
     ctx.translate(x, y);
-    if (sideways) ctx.rotate(Math.PI / 2);
-    if (t.strokeWidth > 0) ctx.strokeText(ch, 0, 0);
-    ctx.fillText(ch, 0, 0);
+    drawStyledText(ctx, style, tok.combine ? toTcyText(tok.text) : tok.text, sideways, r.width * scaleX, r.height * scaleY);
     ctx.restore();
   }
   ctx.restore();

@@ -2,13 +2,14 @@
   "_說明": "畫面上看得到的固定文字直接寫在 index.html。這裡只放程式動態產生的句子、狀態列提示、確認框、toast，以及提示詞。已儲存在 API 設定裡的提示詞需按還原後再儲存才會更新。{大括號}是程式填入的變數，請保留。",
 
   "ui": {
-    "projectFallback": "預設",
+    "projectFallback": "未開啟專案",
     "pageFolder": "第 {n} 頁　{num}",
     "unusedFolder": "未分類",
     "measureSample": "對白",
     "deleteLine": "刪除這則對白",
     "deleteFail": "刪除失敗",
-    "requestFail": "失敗"
+    "requestFail": "失敗",
+    "glossaryDel": "刪除"
   },
 
   "tools": {
@@ -37,23 +38,33 @@
     "btn-fit-w": "適應寬度　讓文字框寬度貼齊文字",
     "btn-fit-h": "適應高度　讓文字框高度貼齊文字",
     "zoom-label": "顯示比例",
-    "drag-sort": "拖動排序　拖曳調整對白順序",
     "line-del": "刪除　刪除這則對白",
     "btn-unplace-text": "移除對白　將對白從本頁移除，不刪除對白",
     "btn-del-text": "刪除對白　將對白從資料庫刪除",
     "btn-open-project": "開啟　選擇圖片資料夾作為專案",
     "btn-new-project": "新建　在空資料夾建立新專案",
-    "btn-style-from-current": "套用目前設定　把右側文字樣式寫入這個樣式"
+    "btn-style-from-current": "套用目前設定　把右側文字樣式寫入這個樣式",
+    "btn-fonts": "字體　匯入、重新命名或刪除字體"
+  },
+
+  "font": {
+    "empty": "尚未匯入字體",
+    "noMatch": "沒有符合的字體",
+    "builtin": "內建",
+    "sample": "滾滾長江東逝水Aaあぁアァ 123 !?"
   },
 
   "hints": {
-    "swatchRemove": "{hex}　右鍵移除"
+    "swatchRemove": "{hex}　右鍵刪除"
   },
 
   "placeholders": {
     "dialogueEmpty": "（空）",
     "apiKey": "貼上你的 API Key",
-    "apiKeySaved": "已儲存，留空則沿用"
+    "apiKeySaved": "已儲存，留空則沿用",
+    "glossarySrc": "原文",
+    "glossaryText": "譯文",
+    "glossaryBulk": "一行一則，原文=譯文"
   },
 
   "preview": {
@@ -80,7 +91,8 @@
     "deletePage": "刪除「{name}」？圖片會從專案資料夾移除，該頁對白也會一併刪除。",
     "clearPaint": "清除本頁塗抹？原文會再出現。",
     "autoMany": "將檢測 {n} 頁{extra}。繼續？",
-    "autoManyLocal": "（本地 OCR，翻譯仍會呼叫 API）"
+    "autoManyLocal": "（本地 OCR，翻譯仍會呼叫 API）",
+    "deleteFont": "刪除字體「{name}」？已套用此字體的對白會改用備援字體顯示。"
   },
 
   "log": {
@@ -96,7 +108,10 @@
     "done": "翻譯完成",
     "abort": "中止：{msg}",
     "running": "檢測中…",
-    "start": "開始檢測"
+    "start": "開始檢測",
+    "close": "關閉",
+    "stop": "中止",
+    "needReview": "需核對"
   },
 
   "toast": {
@@ -121,11 +136,13 @@
     "needVisionKey": "請填入 API Key。或改回本地 OCR。",
     "noDialogue": "沒有識別到對白",
     "recognizeDone": "識別完成，共 {n} 則",
+    "autoCancelled": "已中止檢測",
     "noWrite": "沒有可寫入的結果",
     "wrote": "已寫入 {n} 則對白",
     "apiSaved": "API 設定已儲存",
     "apiOk": "連線測試成功。",
     "visionOk": "視覺檢測成功。",
+    "localOcrOk": "本地 OCR 可用。",
     "addedDialogue": "已加入 {n} 則對白",
     "applyPage": "已套用到本頁對白",
     "applyAll": "已套用到全部對白",
@@ -142,15 +159,19 @@
     "importedOne": "已匯入 {name}",
     "importedMany": "已匯入 {n} 張圖片",
     "importFail": "匯入失敗：{msg}",
-    "fontOk": "字體已匯入",
-    "fontNone": "沒有匯入字體",
+    "fontOk": "已匯入「{name}」",
+    "fontOkMany": "已匯入 {n} 個字體",
+    "fontNone": "沒有可匯入的字體檔",
     "fontFail": "字體匯入失敗：{msg}",
+    "fontRenamed": "已重新命名為「{name}」",
+    "fontDeleted": "已刪除「{name}」",
     "bootFail": "啟動失敗：{msg}"
   },
 
   "probe": {
     "apiFail": "連線測試失敗。",
     "visionFail": "視覺檢測失敗。",
+    "localFail": "本地 OCR 測試失敗。",
     "reasons": {
       "missing_key": "未填寫 API Key。",
       "missing_model": "未填寫模型名稱。",
@@ -168,6 +189,7 @@
       "vision_mismatch": "模型未能正確讀取測試圖像。",
       "invalid_json": "API 回傳格式異常。",
       "need_pillow": "本地缺少圖像處理元件。",
+      "need_local_ocr": "尚未安裝本地 OCR。",
       "unknown": "測試未完成。"
     },
     "actions": {
@@ -187,6 +209,7 @@
       "vision_mismatch": "請改用支援視覺輸入的模型，並確認端點接受圖像。",
       "invalid_json": "請確認 API 位址為 OpenAI 相容的 chat completions 端點。",
       "need_pillow": "請安裝 Pillow 後重新啟動工具。",
+      "need_local_ocr": "請執行 pip install rapidocr onnxruntime 後重新啟動。",
       "unknown": "請確認設定後重試。"
     }
   },

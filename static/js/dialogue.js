@@ -5,6 +5,7 @@ import { pushHistory } from "./history.js";
 import { markDirty } from "./api.js";
 import { setTool } from "./view.js";
 import { syncTextEl, renderTexts, selectOnly, selectTextsByDialogue, selectTextsByDialogueIds, revealDialogueInList, focusDialoguePlacement, removeTextsByDialogue } from "./text.js";
+import { clampRuns } from "./glyphs.js";
 function placedPageOf(id, prefer = state.pageName) {
   let first = "";
   for (const p of state.pages) {
@@ -46,6 +47,7 @@ function syncTextsFromDialogue(d) {
     for (const t of page.texts || []) {
       if (t.dialogueId !== d.id || t.text === d.text) continue;
       t.text = d.text;
+      clampRuns(t);
       if (pageName === state.pageName) syncTextEl(t);
     }
   }
@@ -139,26 +141,25 @@ function makeDialogueRow(d, n, used) {
   const isUsed = (used || usedDialogueIds()).has(d.id);
   const row = document.createElement("div");
   row.className = "line" + (state.selectedDialogueIds.has(d.id) || d.id === state.selectedDialogueId ? " selected" : "") + (isUsed ? " used" : " unused");
-  row.draggable = false;
+  row.draggable = true;
   row.dataset.id = d.id;
-  row.innerHTML = `<div class="meta"><span class="line-index"><i class="drag-hint" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 5h2v14h-2zM8 5h2v14H8z"/></svg></i>#${n}</span>
+  row.innerHTML = `<div class="meta"><span class="line-index">#${n}</span>
     <span class="line-actions"><button type="button" class="line-del" aria-label="${t("ui.deleteLine")}">×</button></span></div>
     <div class="body" contenteditable="true" spellcheck="false" data-placeholder="${t("placeholders.dialogueEmpty")}"></div>${d.src ? '<div class="src"></div>' : ""}`;
   const body = row.querySelector(".body");
+  body.draggable = false;
   body.textContent = d.text;
   if (d.src) row.querySelector(".src").textContent = d.src;
   row.querySelector(".line-del").addEventListener("click", (e) => {
     e.stopPropagation();
     deleteDialogue(d.id);
   });
-  bindHint(row.querySelector(".drag-hint"), "drag-sort");
   bindHint(row.querySelector(".line-del"), "line-del");
-  const handle = row.querySelector(".drag-hint");
-  handle.addEventListener("mousedown", () => {
-    row.draggable = true;
-  });
-  row.addEventListener("mouseup", () => {
+  body.addEventListener("pointerdown", () => {
     row.draggable = false;
+  });
+  body.addEventListener("pointerup", () => {
+    if (document.activeElement !== body) row.draggable = true;
   });
   row.addEventListener("click", async (e) => {
     if (bag.dialogueDrag.moved) return;
@@ -224,6 +225,7 @@ function makeDialogueRow(d, n, used) {
       body.textContent = bodyOrig;
       syncTextsFromDialogue(d);
       bodyCancel = false;
+      row.draggable = true;
       return;
     }
     const next = editableText(body);
@@ -234,6 +236,7 @@ function makeDialogueRow(d, n, used) {
       markDirty();
     }
     if (!d.text) body.textContent = "";
+    row.draggable = true;
   });
   body.addEventListener("keydown", (e) => {
     e.stopPropagation();
@@ -257,7 +260,7 @@ function makeDialogueRow(d, n, used) {
     e.dataTransfer.setData("text/plain", d.id);
   });
   row.addEventListener("dragend", () => {
-    row.draggable = false;
+    row.draggable = document.activeElement !== body;
     row.classList.remove("dragging");
     clearDialogueDropMarks();
     setTimeout(() => {

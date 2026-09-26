@@ -45,6 +45,7 @@ DEFAULT_SETTINGS = {
     "includeSfx": False,
     "doBreak": True,
     "placeOnCanvas": True,
+    "autoErase": True,
     "maxLongSide": 1792,
     "ocrEngine": "local",
 }

@@ -376,7 +376,31 @@ def _row_id(row: dict, index: int) -> str:
 
 # --- 實際翻譯：把識別結果譯成嵌字文案 ---
 
-def translate_items(items: list, settings: dict, do_break: bool = True, strict_punct: bool = True) -> list:
+def _pair_list(rows, limit: int = 0) -> list[dict]:
+    out = []
+    if not isinstance(rows, list):
+        return out
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        src = str(row.get("src") or "").strip()
+        text = str(row.get("text") or "").strip()
+        if not src or not text:
+            continue
+        out.append({"src": src, "text": text})
+    if limit and len(out) > limit:
+        return out[-limit:]
+    return out
+
+
+def translate_items(
+    items: list,
+    settings: dict,
+    do_break: bool = True,
+    strict_punct: bool = True,
+    glossary=None,
+    memory=None,
+) -> list:
     valid = []
     for item in items:
         if not isinstance(item, dict):
@@ -409,16 +433,24 @@ def translate_items(items: list, settings: dict, do_break: bool = True, strict_p
         "\ntext 必須輸出繁體中文，禁止輸出原文。"
         "\nid 必須與輸入完全相同。"
         '\n輸出格式：{"items":[{"id":"<id>","text":"<zh-Hant>"}]}'
+        "\n若有用語表，專有名詞、稱呼、口癖必須依表翻譯，不得另譯。"
+        "\n若有近期譯文，譯名與口吻請保持一致，但不得覆寫用語表。"
     )
-    lines = [f"{item['id']}\t{item['src']}" for item in valid]
+    glossary_rows = _pair_list(glossary)
+    memory_rows = _pair_list(memory, 40)
+    user_parts = ["翻譯以下對白。每行格式是 id<TAB>日文原文。只輸出 JSON。"]
+    if glossary_rows:
+        user_parts.append("用語表：")
+        user_parts.extend(f"- {row['src']} → {row['text']}" for row in glossary_rows)
+    if memory_rows:
+        user_parts.append("近期已確認譯文：")
+        user_parts.extend(f"- {row['src']} → {row['text']}" for row in memory_rows)
+    user_parts.append("\n".join(f"{item['id']}\t{item['src']}" for item in valid))
     content = chat_complete(
         settings,
         [
             {"role": "system", "content": prompt},
-            {
-                "role": "user",
-                "content": "翻譯以下對白。每行格式是 id<TAB>日文原文。只輸出 JSON。\n" + "\n".join(lines),
-            },
+            {"role": "user", "content": "\n".join(user_parts)},
         ],
         timeout=180,
     )

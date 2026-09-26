@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""本地 OCR：RapidOCR 偵測氣泡位置 + 辨識原文，不需 API。"""
+"""本地 OCR：RapidOCR 整頁找框，裁切放大後再認字。"""
 from __future__ import annotations
 
 import threading
@@ -7,6 +7,9 @@ from pathlib import Path
 
 _ENGINE = None
 _LOCK = threading.Lock()
+_CROP_PAD = 0.10
+_UPSCALE_MIN = 48
+_LOW_CONF = 0.35
 
 
 def get_engine():
@@ -88,13 +91,22 @@ def _cluster(items: list, img_w: int, img_h: int) -> list[list]:
     return list(groups.values())
 
 
-def _join_cluster(group: list) -> dict:
+def _join_src(group: list) -> tuple[str, float]:
+    if not group:
+        return "", 0.0
     vertical = sum(1 for it in group if it["h"] >= it["w"]) >= max(1, len(group) / 2)
     if vertical:
         ordered = sorted(group, key=lambda t: (-(t["x"] + t["w"] / 2), t["y"]))
     else:
         ordered = sorted(group, key=lambda t: (t["y"], t["x"]))
-    src = "".join(it["src"] for it in ordered)
+    src = "".join(it["src"] for it in ordered if it.get("src"))
+    score = min(float(it.get("score") or 0) for it in group)
+    return src, score
+
+
+def _join_cluster(group: list) -> dict:
+    vertical = sum(1 for it in group if it["h"] >= it["w"]) >= max(1, len(group) / 2)
+    src, score = _join_src(group)
     x = min(it["x"] for it in group)
     y = min(it["y"] for it in group)
     r = max(it["x"] + it["w"] for it in group)
@@ -107,12 +119,73 @@ def _join_cluster(group: list) -> dict:
         "h": round(b - y, 2),
         "kind": "speech",
         "vertical": vertical,
+        "score": round(score, 4),
+        "lowConf": score < _LOW_CONF,
     }
 
 
 def _reading_key(item: dict, img_h: int) -> tuple:
     band = int(item["y"] / max(img_h * 0.16, 1))
     return (band, -(item["x"] + item["w"] / 2))
+
+
+def _image_source(im):
+    try:
+        import numpy as np
+        return np.array(im.convert("RGB"), copy=True)
+    except ImportError:
+        return im.convert("RGB")
+
+
+def _run_ocr(engine, source) -> list[dict]:
+    with _LOCK:
+        result = engine(source)
+    boxes = getattr(result, "boxes", None)
+    txts = getattr(result, "txts", None)
+    scores = getattr(result, "scores", None)
+    boxes = [] if boxes is None else list(boxes)
+    txts = [] if txts is None else list(txts)
+    scores = [] if scores is None else list(scores)
+    items = []
+    for box, txt, score in zip(boxes, txts, scores):
+        x, y, w, h = _xywh(box)
+        if w < 6 or h < 6:
+            continue
+        items.append(
+            {
+                "src": str(txt or "").strip(),
+                "x": x,
+                "y": y,
+                "w": w,
+                "h": h,
+                "score": float(score or 0),
+            }
+        )
+    return items
+
+
+def _crop_pad(img_w: int, img_h: int, x: float, y: float, w: float, h: float) -> tuple[int, int, int, int]:
+    px = max(2.0, w * _CROP_PAD)
+    py = max(2.0, h * _CROP_PAD)
+    x0 = max(0, int(x - px))
+    y0 = max(0, int(y - py))
+    x1 = min(img_w, int(x + w + px + 0.999))
+    y1 = min(img_h, int(y + h + py + 0.999))
+    return x0, y0, x1, y1
+
+
+def _recognize_crop(engine, rgb, item: dict) -> tuple[str, float]:
+    x0, y0, x1, y1 = _crop_pad(rgb.width, rgb.height, item["x"], item["y"], item["w"], item["h"])
+    if x1 - x0 < 6 or y1 - y0 < 6:
+        return "", 0.0
+    crop = rgb.crop((x0, y0, x1, y1))
+    if min(crop.size) < _UPSCALE_MIN:
+        from PIL import Image
+        crop = crop.resize((max(1, crop.width * 2), max(1, crop.height * 2)), Image.Resampling.LANCZOS)
+    found = _run_ocr(engine, _image_source(crop))
+    if not found:
+        return "", 0.0
+    return _join_src(found)
 
 
 def recognize_local(page_path: Path, include_sfx: bool = False) -> dict:
@@ -125,38 +198,26 @@ def recognize_local(page_path: Path, include_sfx: bool = False) -> dict:
     with Image.open(page_path) as im:
         img_w, img_h = im.size
         rgb = im.convert("RGB")
-        try:
-            import numpy as np
-            source = np.array(rgb, copy=True)
-        except ImportError:
-            source = str(page_path)
     engine = get_engine()
-    with _LOCK:
-        result = engine(source)
-    boxes = getattr(result, "boxes", None)
-    txts = getattr(result, "txts", None)
-    scores = getattr(result, "scores", None)
-    boxes = [] if boxes is None else list(boxes)
-    txts = [] if txts is None else list(txts)
-    scores = [] if scores is None else list(scores)
+    detected = _run_ocr(engine, _image_source(rgb))
     lines = []
-    for box, txt, score in zip(boxes, txts, scores):
-        src = str(txt or "").strip()
+    for item in detected:
+        try:
+            crop_src, crop_score = _recognize_crop(engine, rgb, item)
+        except Exception:
+            crop_src, crop_score = "", 0.0
+        src = crop_src or item["src"]
         if not src:
             continue
-        if float(score or 0) < 0.35:
-            continue
-        x, y, w, h = _xywh(box)
-        if w < 6 or h < 6:
-            continue
+        score = crop_score if crop_src else float(item.get("score") or 0)
         lines.append(
             {
                 "src": src,
-                "x": x,
-                "y": y,
-                "w": w,
-                "h": h,
-                "score": float(score or 0),
+                "x": item["x"],
+                "y": item["y"],
+                "w": item["w"],
+                "h": item["h"],
+                "score": score,
             }
         )
     if not include_sfx:

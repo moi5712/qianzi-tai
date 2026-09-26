@@ -1,17 +1,20 @@
 // --- 啟動 ---
-import { $, $$, state, project, ui, bag, pageHistory, defaultStyle, TOOL_KEYS, TOOL_HOLD_MS, HANDLE_OPP, recalledPage, clamp, currentTexts, selectDialogues, clearDialogueSelection, selectedDialogueList, usedDialogueIds } from "./store.js";
+import { $, $$, state, project, ui, bag, pageHistory, defaultStyle, TOOL_KEYS, TOOL_HOLD_MS, recalledPage, clamp, currentTexts, selectDialogues, clearDialogueSelection, selectedDialogueList, usedDialogueIds } from "./store.js";
 import { t, toast, toastT, confirmT, toolHint, setStatusHint, bindHint, loadCopy, probeToast } from "./copy.js";
 import { apiGet, saveProject, saveEraseNow, saveEraseSoon, markDirty } from "./api.js";
 import { pushHistory, undo, redo, captureState, commitHistory } from "./history.js";
-import { setTool, applyView, applyCompare, fitPage, setZoomLevel, clientToImage, clearToolHold, rotateVec, zoomAt, setDialogueFilter, updateStatusPage } from "./view.js";
+import { setTool, applyView, applyCompare, fitPage, setZoomLevel, clientToImage, clearToolHold, zoomAt, setDialogueFilter, updateStatusPage } from "./view.js";
 import { strokeSegment, updateBrushCursor, updatePickerCursor, updateRectPreview, hideRectPreview, updateLassoPreview, hideLassoPreview, fillLasso, pickColor } from "./paint.js";
-import { applyFormToSelected, writeStyleToForm, loadStylePresets, fillStylePresetSelect, restoreApplyProps, rememberApplyProps, decorateNumberInputs, fitSelectedBoxes, applyStyleToTexts, applyStylePreset, openStyleModal, addStylePreset, deleteStylePreset, setPresetAsDefault, applyCurrentFormToPreset, commitStyleEditor, syncStyleEditorLocks, saveStylePresets } from "./style.js";
-import { placeTextAt, createEmptyDialogueAt, startInlineEdit, selectOnly, selectedText, selectedTexts, toggleSelect, selectByMarquee, refreshSelection, syncTextEl, copySelectedTexts, cutSelectedTexts, pasteTexts, pinOpposite, localToWorld, unplaceSelectedTexts, deleteSelectedTexts } from "./text.js";
+import { applyFormToSelected, writeStyleToForm, loadStylePresets, fillStylePresetSelect, restoreApplyProps, rememberApplyProps, decorateNumberInputs, bindSelectWheel, fitSelectedBoxes, applyStyleToTexts, applyStylePreset, openStyleModal, addStylePreset, deleteStylePreset, setPresetAsDefault, applyCurrentFormToPreset, commitStyleEditor, syncStyleEditorLocks, saveStylePresets, applySizeModeToSelected } from "./style.js";
+import { placeTextAt, createEmptyDialogueAt, startInlineEdit, endInlineEdit, selectOnly, selectedText, selectedTexts, toggleSelect, selectByMarquee, refreshSelection, syncTextEl, copySelectedTexts, cutSelectedTexts, pasteTexts, unplaceSelectedTexts, deleteSelectedTexts, restoreEditSelection } from "./text.js";
+import { snapshotResize, applyBoxResize } from "./boxgeom.js";
 import { renderDialogue, parseBulk, placedPageOf, dialogueFolderOf } from "./dialogue.js";
-import { loadPage, renderThumbs, bindThumbsSort, refreshPages, deletePage, hidePageMenu, applyPageOrder, registerImportedFonts, fillFontSelect, ensureFontLoaded, familyOfFontFile } from "./pages.js";
+import { loadPage, renderThumbs, bindThumbsSort, refreshPages, deletePage, hidePageMenu, applyPageOrder, fillFontSelect } from "./pages.js";
+import { bindFontLibrary, applyFontCatalog } from "./fonts.js";
 import { bindColorPopover, fillRange, setColorTarget, addSwatch, renderSwatches } from "./color.js";
-import { openAutoModal, openSettingsModal, runAutoPipeline, applyAutoResults, saveApiSettings, setPagePickSelection, selectedPagePicks, renderPagePicks, setSettingsBusy, postProbe } from "./auto.js";
+import { openAutoModal, closeAutoModal, openSettingsModal, runAutoPipeline, applyAutoResults, saveApiSettings, setPagePickSelection, selectedPagePicks, renderPagePicks, setSettingsBusy, postProbe, addGlossaryRow, onGlossaryTextInput, setSettingsTab } from "./auto.js";
 import { exportPage } from "./export.js";
+import { captureCharSel, charStyleAt, clearCharSel, clearNativeSel, readInnerRange, paintCharHighlight, clearCharHighlight, restoreCharSel, placeCaret, caretOffset } from "./glyphs.js";
 
 function revertDrag(drag) {
   if (!drag) return;
@@ -111,6 +114,7 @@ function finishPointer(e, cancelled) {
 
 function bindPointers() {
   ui.viewport.addEventListener("wheel", (e) => {
+    if (e.target.closest("#view-float")) return;
     e.preventDefault();
     const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
     zoomAt(e.clientX, e.clientY, state.zoom * factor);
@@ -119,10 +123,16 @@ function bindPointers() {
   }, { passive: false });
 
   ui.viewport.addEventListener("contextmenu", (e) => {
+    if (e.target.closest("#view-float")) return;
     e.preventDefault();
   });
 
   ui.viewport.addEventListener("pointerdown", (e) => {
+    if (e.target.closest("#view-float")) return;
+    if (!e.target.closest(".text-box")) {
+      endInlineEdit();
+      bag.editArmed = false;
+    }
     if (e.button === 2) {
       bag.picking = true;
       const p = clientToImage(e.clientX, e.clientY);
@@ -227,28 +237,21 @@ function bindPointers() {
       for (const item of bag.drag.group || []) {
         item.t.x = item.x + dx;
         item.t.y = item.y + dy;
-        syncTextEl(item.t);
+        syncTextEl(item.t, { layoutOnly: true });
       }
       return;
     }
     if (bag.drag.type === "resize") {
       const t = selectedText();
-      if (!t) return;
-      const local = rotateVec(p.x - bag.drag.mx, p.y - bag.drag.my, -t.rotation);
-      let w = bag.drag.w;
-      let h = bag.drag.h;
-      const hnd = bag.drag.handle;
-      if (hnd.includes("e")) w = bag.drag.w + local.x;
-      if (hnd.includes("w")) w = bag.drag.w - local.x;
-      if (hnd.includes("s")) h = bag.drag.h + local.y;
-      if (hnd.includes("n")) h = bag.drag.h - local.y;
-      t.w = clamp(w, 24, 4000);
-      t.h = clamp(h, 24, 4000);
-      const [lx, ly] = HANDLE_OPP[hnd](t.w, t.h);
-      pinOpposite(t, bag.drag.fixed, lx, ly);
-      syncTextEl(t);
-      ui.boxW.value = Math.round(t.w);
-      ui.boxH.value = Math.round(t.h);
+      if (!t || !bag.drag.snap) return;
+      applyBoxResize(t, bag.drag.snap, p);
+      syncTextEl(t, { layoutOnly: true });
+      if (ui.boxW) ui.boxW.value = String(Math.round(t.w));
+      if (ui.boxH) ui.boxH.value = String(Math.round(t.h));
+      if (ui.sizeMode && ui.sizeMode.value !== "fixed") {
+        ui.sizeMode.value = "fixed";
+        ui.sizeMode.dispatchEvent(new Event("input"));
+      }
       return;
     }
     if (bag.drag.type === "rot") {
@@ -259,12 +262,76 @@ function bindPointers() {
       if (e.shiftKey) deg = Math.round(deg / 15) * 15;
       t.rotation = deg;
       ui.rotation.value = Math.round(deg * 10) / 10;
-      syncTextEl(t);
+      syncTextEl(t, { layoutOnly: true });
     }
   });
 
-  window.addEventListener("pointerup", (e) => finishPointer(e, false));
-  window.addEventListener("pointercancel", (e) => finishPointer(e, true));
+  window.addEventListener("pointerup", (e) => {
+    if (bag.glyphPick) {
+      bag.glyphPick = false;
+      const box = ui.texts.querySelector(".text-box.selected");
+      const inner = box?.querySelector(".inner");
+      const item = selectedText() || currentTexts().find((x) => x.id === box?.dataset.id);
+      if (inner && box) {
+        const sel = captureCharSel(inner, box.dataset.id);
+        clearNativeSel();
+        writeStyleToForm(item && sel ? { ...item, ...charStyleAt(item, sel.start) } : item);
+      } else {
+        clearCharSel();
+      }
+    }
+    const ptr = bag.boxPtr;
+    bag.boxPtr = null;
+    if (ptr && !bag.inlineEdit) {
+      const moved = Math.hypot(e.clientX - ptr.x, e.clientY - ptr.y) >= 4;
+      if (ptr.already && !moved) bag.editArmed = true;
+    }
+    const boxDrag = bag.drag && ["move", "resize", "rot"].includes(bag.drag.type);
+    finishPointer(e, false);
+    if (boxDrag && bag.inlineEdit) {
+      const inner = ui.texts?.querySelector(`[data-id="${bag.inlineEdit.id}"] .inner`);
+      if (inner) {
+        inner.focus({ preventScroll: true });
+        if (bag.charSel) {
+          restoreCharSel(inner, bag.charSel.start, bag.charSel.end);
+          paintCharHighlight(inner, bag.charSel.start, bag.charSel.end);
+        } else if (bag.editCaret != null) {
+          placeCaret(inner, bag.editCaret);
+        }
+      }
+    }
+  });
+  window.addEventListener("pointercancel", (e) => {
+    bag.glyphPick = false;
+    finishPointer(e, true);
+  });
+  document.addEventListener("selectionchange", () => {
+    const box = ui.texts?.querySelector(".text-box.editing");
+    const inner = box?.querySelector(".inner");
+    if (!inner || !box) return;
+    if (bag.drag && ["move", "resize", "rot"].includes(bag.drag.type)) return;
+    const next = readInnerRange(inner, box.dataset.id);
+    const inEditor = document.activeElement === inner || inner.contains(document.activeElement);
+    if (next) {
+      bag.charSel = next;
+      paintCharHighlight(inner, next.start, next.end);
+    } else if (inEditor) {
+      bag.charSel = null;
+      clearCharHighlight();
+    }
+    const item = currentTexts().find((x) => x.id === box.dataset.id);
+    const sel = bag.charSel;
+    if (item && sel) writeStyleToForm({ ...item, ...charStyleAt(item, sel.start) });
+  });
+
+  document.querySelector(".side")?.addEventListener("mousedown", (e) => {
+    if (!bag.inlineEdit) return;
+    if (e.target.closest("input, textarea, select")) return;
+    const keep = e.target.closest("button, .seg, .chip, .fit-box-btn, .num-spin");
+    if (!keep) return;
+    const id = bag.inlineEdit.id;
+    requestAnimationFrame(() => restoreEditSelection(id));
+  });
 
   ui.texts.addEventListener("pointerdown", (e) => {
     const box = e.target.closest(".text-box");
@@ -276,27 +343,42 @@ function bindPointers() {
     }
     if (state.tool === "pan" || e.button === 1) return;
     e.stopPropagation();
-    if (box.classList.contains("editing") || e.target.closest("[contenteditable='true']")) return;
+    const editingThis = bag.inlineEdit?.id === box.dataset.id;
+    const onHandle = !!e.target.closest(".handle, .rot");
+    const onInner = !!e.target.closest(".inner") && !onHandle;
+    const inner = box.querySelector(".inner");
+    if (editingThis) {
+      bag.editCaret = inner ? caretOffset(inner) : 0;
+    }
+    if (editingThis && onInner && !e.altKey && !onHandle) return;
+    if (editingThis) e.preventDefault();
+
+    if (!editingThis && bag.inlineEdit) endInlineEdit();
+    if (!editingThis && box.querySelector("[contenteditable='true']")) endInlineEdit();
     const t = currentTexts().find((x) => x.id === box.dataset.id);
     if (!t) return;
-    if (e.shiftKey) {
+    const already = state.selectedTextIds.has(t.id);
+    bag.boxPtr = { id: t.id, already, x: e.clientX, y: e.clientY };
+    if (e.shiftKey && !editingThis) {
       toggleSelect(t.id);
       refreshSelection();
       const prim = selectedText();
       if (prim) writeStyleToForm(prim);
       return;
     }
-    const already = state.selectedTextIds.has(t.id);
     if (!already) selectOnly(t.id);
     else state.selectedTextId = t.id;
     refreshSelection();
     writeStyleToForm(t);
+    if (!editingThis) clearCharSel();
     const p = clientToImage(e.clientX, e.clientY);
     const hist = captureState({ paint: false, projectData: true });
     const handle = e.target.dataset.h;
     if (handle === "rot") {
       bag.drag = {
         type: "rot",
+        mx: p.x,
+        my: p.y,
         cx: t.x + t.w / 2,
         cy: t.y + t.h / 2,
         off: (Math.atan2(p.y - (t.y + t.h / 2), p.x - (t.x + t.w / 2)) * 180) / Math.PI - t.rotation,
@@ -305,15 +387,12 @@ function bindPointers() {
       return;
     }
     if (handle) {
-      const [ox, oy] = HANDLE_OPP[handle](t.w, t.h);
       bag.drag = {
         type: "resize",
-        handle,
         mx: p.x,
         my: p.y,
-        w: t.w,
-        h: t.h,
-        fixed: localToWorld(t, ox, oy),
+        handle,
+        snap: snapshotResize(t, handle),
         hist,
       };
       return;
@@ -322,7 +401,7 @@ function bindPointers() {
       type: "move",
       mx: p.x,
       my: p.y,
-      collapseOnClick: already && state.selectedTextIds.size > 1,
+      collapseOnClick: !editingThis && already && state.selectedTextIds.size > 1,
       collapseId: t.id,
       group: selectedTexts().map((item) => ({ t: item, x: item.x, y: item.y })),
       hist,
@@ -332,9 +411,10 @@ function bindPointers() {
   ui.texts.addEventListener("dblclick", (e) => {
     const box = e.target.closest(".text-box");
     if (!box) return;
+    if (bag.inlineEdit?.id === box.dataset.id) return;
     e.preventDefault();
     e.stopPropagation();
-    startInlineEdit(box);
+    startInlineEdit(box, { x: e.clientX, y: e.clientY });
   });
 
   ui.viewport.addEventListener("dblclick", (e) => {
@@ -357,7 +437,6 @@ function bindForm() {
     "fontWeight",
     "writingMode",
     "alignH",
-    "alignV",
     "fillColor",
     "strokeColor",
     "strokeWidth",
@@ -374,6 +453,13 @@ function bindForm() {
     ui[key].addEventListener("input", applyFormToSelected);
     ui[key].addEventListener("change", applyFormToSelected);
   });
+  ui.sizeMode?.addEventListener("change", () => {
+    if (bag.restoring) return;
+    applySizeModeToSelected(ui.sizeMode.value);
+  });
+  bindSelectWheel(ui.fontFamily, { host: ui.fontFamily?.closest(".box-fit-row") });
+  bindSelectWheel(ui.stylePreset, { skipEmpty: true, host: ui.stylePreset?.closest(".box-fit-row") });
+  bindSelectWheel(ui.fontWeight);
   $$(".chip").forEach((btn) => {
     btn.addEventListener("click", () => {
       const input = $("#" + btn.dataset.target);
@@ -422,7 +508,7 @@ function bindButtons() {
     b.addEventListener("pointerenter", () => setStatusHint(toolHint(b.dataset.tool)));
     b.addEventListener("pointerleave", () => setStatusHint(toolHint()));
   });
-  ["btn-undo", "btn-redo", "btn-clear-paint", "btn-hide-paint", "btn-hide-text", "btn-fit", "btn-fit-w", "btn-fit-h", "btn-open-project", "btn-new-project"].forEach((id) => {
+  ["btn-undo", "btn-redo", "btn-clear-paint", "btn-hide-paint", "btn-hide-text", "btn-fit", "btn-fit-w", "btn-fit-h", "btn-open-project", "btn-new-project", "btn-fonts"].forEach((id) => {
     bindHint($("#" + id), id);
   });
   ["brush-size", "brush-hard", "brush-color"].forEach((id) => {
@@ -430,7 +516,7 @@ function bindButtons() {
     bindHint(input?.closest("label") || input, id);
   });
   bindHint(ui.brushSizeVal, "brush-size");
-  bindHint($("#zoom-toggle") || $("#zoom-label"), "zoom-label");
+  bindHint($("#zoom-toggle"), "zoom-label");
   $("#btn-undo").addEventListener("click", undo);
   $("#btn-redo").addEventListener("click", redo);
   $$(".filters button").forEach((b) => {
@@ -439,7 +525,10 @@ function bindButtons() {
   $("#btn-fit").addEventListener("click", fitPage);
   $("#btn-fit-w").addEventListener("click", () => fitSelectedBoxes({ width: true, height: false }));
   $("#btn-fit-h").addEventListener("click", () => fitSelectedBoxes({ width: false, height: true }));
-  ui.zoomLabel.addEventListener("change", () => setZoomLevel(ui.zoomLabel.value));
+  ui.zoomLabel.addEventListener("change", () => {
+    setZoomLevel(ui.zoomLabel.value);
+    ui.zoomLabel.blur();
+  });
   $("#btn-hide-paint").addEventListener("click", () => {
     state.hidePaint = !state.hidePaint;
     if (state.hidePaint) state.showOriginal = false;
@@ -470,6 +559,7 @@ function bindButtons() {
   $("#btn-del-text").addEventListener("click", deleteSelectedTexts);
   bindHint($("#btn-unplace-text"), "btn-unplace-text");
   bindHint($("#btn-del-text"), "btn-del-text");
+  bindHint($("#btn-fonts-panel"), "btn-fonts");
   bindThumbsSort();
   if (ui.pageMenu) {
     $("#page-menu-delete")?.addEventListener("click", () => deletePage(ui.pageMenu.dataset.name));
@@ -486,11 +576,15 @@ function bindButtons() {
     ui.bulkText.focus();
   });
   $("#btn-auto").addEventListener("click", openAutoModal);
-  $("#btn-auto-cancel").addEventListener("click", () => {
-    if (bag.autoBusy) return;
-    ui.autoModal.hidden = true;
-  });
+  $("#btn-auto-cancel").addEventListener("click", closeAutoModal);
   $("#btn-auto-pages-current").addEventListener("click", () => setPagePickSelection(ui.autoPages, "current"));
+  const btnGlossaryAdd = $("#btn-glossary-add");
+  if (btnGlossaryAdd) btnGlossaryAdd.addEventListener("click", addGlossaryRow);
+  const glossaryText = $("#auto-glossary-text");
+  if (glossaryText) glossaryText.addEventListener("input", onGlossaryTextInput);
+  $$("[data-settings-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => setSettingsTab(btn.dataset.settingsTab));
+  });
   $("#auto-pages-all").addEventListener("change", () => {
     setPagePickSelection(ui.autoPages, $("#auto-pages-all").checked ? "all" : "none");
   });
@@ -581,7 +675,6 @@ function bindButtons() {
     "spFontWeight",
     "spWritingMode",
     "spAlignH",
-    "spAlignV",
     "spFillColor",
     "spStrokeColor",
     "spStrokeWidth",
@@ -689,30 +782,7 @@ function bindButtons() {
     }
     ui.pageFile.value = "";
   });
-  $("#btn-import-font").addEventListener("click", () => ui.fontFile.click());
-  ui.fontFile.addEventListener("change", async () => {
-    const files = [...ui.fontFile.files];
-    const imported = [];
-    try {
-      for (const file of files) {
-        const res = await fetch("/api/fonts", {
-          method: "POST",
-          headers: { "X-Filename": encodeURIComponent(file.name) },
-          body: file,
-        });
-        if (!res.ok) throw new Error(file.name);
-        imported.push(file.name);
-      }
-      const proj = await apiGet("/api/project");
-      const data = await proj.json();
-      registerImportedFonts(data.importedFonts || imported);
-      await Promise.all(imported.map((name) => ensureFontLoaded(familyOfFontFile(name))));
-      toastT(imported.length ? "fontOk" : "fontNone");
-    } catch (err) {
-      toastT("fontFail", { msg: err.message || err });
-    }
-    ui.fontFile.value = "";
-  });
+  bindFontLibrary();
   $("#btn-help").addEventListener("click", () => {
     ui.help.hidden = false;
   });
@@ -722,7 +792,10 @@ function bindButtons() {
   $$(".modal").forEach((el) => {
     el.addEventListener("click", (e) => {
       if (e.target !== el) return;
-      if (el === ui.autoModal && bag.autoBusy) return;
+      if (el === ui.autoModal) {
+        closeAutoModal();
+        return;
+      }
       if (el === ui.exportModal && state.exporting) return;
       el.hidden = true;
     });
@@ -732,12 +805,31 @@ function bindButtons() {
 function bindKeys() {
   window.addEventListener("keydown", (e) => {
     if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName) || e.target.isContentEditable) {
-      if (e.key === "Escape") e.target.blur();
+      if (e.key === "Escape") {
+        e.target.blur();
+        if (bag.inlineEdit) {
+          e.preventDefault();
+          endInlineEdit();
+        }
+      }
       return;
     }
     if (e.key === "Escape" && (bag.drag || bag.picking)) {
       e.preventDefault();
       finishPointer(e, true);
+      return;
+    }
+    if (e.key === "Escape" && bag.inlineEdit) {
+      e.preventDefault();
+      endInlineEdit();
+      return;
+    }
+    if ((e.key === "F2" || e.key === "Enter") && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const box = ui.texts?.querySelector(".text-box.selected");
+      if (box && !box.classList.contains("editing")) {
+        e.preventDefault();
+        startInlineEdit(box);
+      }
       return;
     }
     if ((e.ctrlKey || e.metaKey) && e.code === "KeyS") {
@@ -856,8 +948,8 @@ function cacheUi() {
   ui.fontWeight = $("#font-weight");
   ui.writingMode = $("#writing-mode");
   ui.alignH = $("#align-h");
-  ui.alignV = $("#align-v");
   ui.fillColor = $("#fill-color");
+  ui.fillOpacity = $("#fill-opacity");
   ui.strokeColor = $("#stroke-color");
   ui.strokeWidth = $("#stroke-width");
   ui.lineHeight = $("#line-height");
@@ -865,6 +957,7 @@ function cacheUi() {
   ui.rotation = $("#rotation");
   ui.boxW = $("#box-w");
   ui.boxH = $("#box-h");
+  ui.sizeMode = $("#size-mode");
   ui.stylePreset = $("#style-preset");
   ui.styleModal = $("#style-modal");
   ui.stylePresetList = $("#style-preset-list");
@@ -876,8 +969,8 @@ function cacheUi() {
   ui.spFontWeight = $("#sp-font-weight");
   ui.spWritingMode = $("#sp-writing-mode");
   ui.spAlignH = $("#sp-align-h");
-  ui.spAlignV = $("#sp-align-v");
   ui.spFillColor = $("#sp-fill-color");
+  ui.spFillOpacity = $("#sp-fill-opacity");
   ui.spStrokeColor = $("#sp-stroke-color");
   ui.spStrokeWidth = $("#sp-stroke-width");
   ui.spLineHeight = $("#sp-line-height");
@@ -892,6 +985,11 @@ function cacheUi() {
   ui.optBlank = $("#opt-blank");
   ui.optBilingual = $("#opt-bilingual");
   ui.fontFile = $("#font-file");
+  ui.fontModal = $("#font-modal");
+  ui.fontList = $("#font-list");
+  ui.fontDrop = $("#font-drop");
+  ui.fontSearch = $("#font-search");
+  ui.fontCount = $("#font-count");
   ui.pageFile = $("#page-file");
   ui.exportModal = $("#export-modal");
   ui.exportPages = $("#export-pages");
@@ -902,10 +1000,15 @@ function cacheUi() {
   ui.autoBreak = $("#auto-break");
   ui.autoSfx = $("#auto-sfx");
   ui.autoPlace = $("#auto-place");
+  ui.autoErase = $("#auto-erase");
   ui.autoLogBox = $("#auto-log");
   ui.autoPreview = $("#auto-preview");
+  ui.autoGlossary = $("#auto-glossary");
+  ui.autoGlossaryText = $("#auto-glossary-text");
+  ui.btnGlossaryAdd = $("#btn-glossary-add");
   ui.btnAutoRun = $("#btn-auto-run");
   ui.btnAutoApply = $("#btn-auto-apply");
+  ui.btnAutoCancel = $("#btn-auto-cancel");
   ui.settingsModal = $("#settings-modal");
   ui.setOcrEngine = $("#set-ocr-engine");
   ui.setApiBase = $("#set-api-base");
@@ -916,7 +1019,7 @@ function cacheUi() {
 }
 
 function applyWorkspaceToUi(ws) {
-  state.workspaceId = (ws && ws.id) || "legacy";
+  state.workspaceId = (ws && ws.id) || "";
   if (!ui.projectName) return;
   ui.projectName.textContent = (ws && ws.name) || t("ui.projectFallback");
   ui.projectName.title = (ws && ws.folder) || "";
@@ -953,19 +1056,28 @@ async function bootProject() {
   project.dialogue = [];
   project.pages = {};
   project.defaultStyle = defaultStyle();
+  project.glossary = [];
   if (ui.texts) ui.texts.innerHTML = "";
   if (ui.baseCtx && ui.base) ui.baseCtx.clearRect(0, 0, ui.base.width, ui.base.height);
   if (ui.paintCtx && ui.paint) ui.paintCtx.clearRect(0, 0, ui.paint.width, ui.paint.height);
 
-  const wsRes = await apiGet("/api/workspace");
+  const [wsRes, pagesRes, projRes] = await Promise.all([
+    apiGet("/api/workspace"),
+    apiGet("/api/pages"),
+    apiGet("/api/project"),
+  ]);
   const ws = await wsRes.json();
   applyWorkspaceToUi(ws);
-
-  const [pagesRes, projRes] = await Promise.all([apiGet("/api/pages"), apiGet("/api/project")]);
   const pagesData = await pagesRes.json();
   const saved = await projRes.json();
   if (saved.dialogue) project.dialogue = saved.dialogue;
   if (saved.pages) project.pages = saved.pages;
+  project.glossary = Array.isArray(saved.glossary)
+    ? saved.glossary.map((row) => ({
+        src: String(row?.src || ""),
+        text: String(row?.text || ""),
+      }))
+    : [];
   state.pages = applyPageOrder(pagesData.pages || [], saved.pageOrder || []);
   if (saved.defaultStyle) project.defaultStyle = { ...defaultStyle(), ...saved.defaultStyle };
   const sid = saved.selectedDialogueId || project.dialogue[0]?.id || null;
@@ -982,32 +1094,33 @@ async function bootProject() {
       }
     }
   }
-  registerImportedFonts(saved.importedFonts || []);
+  applyFontCatalog(saved.fonts || saved.importedFonts || []);
   writeStyleToForm(project.defaultStyle);
   renderThumbs();
-  renderDialogue();
   const first = [recalledPage(), saved.pageName, state.pages[0]?.name]
     .find((name) => name && state.pages.some((p) => p.name === name));
   if (!first) {
+    renderDialogue();
     updateStatusPage();
     setStatusHint(toolHint());
     toastT("importPagesHint");
     return;
   }
-  await loadPage(first, { fit: true });
+  const pageP = loadPage(first, { fit: true });
+  renderDialogue();
+  await pageP;
   setStatusHint(toolHint());
 }
 
 async function init() {
   cacheUi();
-  await loadCopy();
-  fillFontSelect([]);
+  fillFontSelect();
   bindPointers();
   bindForm();
   bindButtons();
   bindKeys();
   setTool("select");
-  await bootProject();
+  await Promise.all([loadCopy(), bootProject()]);
 }
 
 init().catch((err) => {

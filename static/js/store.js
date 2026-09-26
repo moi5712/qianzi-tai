@@ -3,18 +3,12 @@
 export const $ = (s, el = document) => el.querySelector(s);
 export const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 
-export const SYSTEM_FONTS = [
-  "Microsoft JhengHei",
-  "Microsoft JhengHei UI",
-  "Noto Sans TC",
-  "Source Han Sans TW",
-  "PMingLiU",
-  "Microsoft YaHei",
-  "Yu Gothic",
-  "SimSun",
-  "Arial",
-  "sans-serif",
-];
+export function fontFamilyCss(name) {
+  const family = String(name || "").trim();
+  return family
+    ? `"${family}", "Microsoft JhengHei", "Noto Sans TC", sans-serif`
+    : `"Microsoft JhengHei", "Noto Sans TC", sans-serif`;
+}
 
 export const HANDLE_OPP = {
   se: (w, h) => [0, 0],
@@ -42,8 +36,8 @@ export const STYLE_FIELDS = [
   { key: "fontWeight", form: "fontWeight", editor: "spFontWeight", type: "num", fallback: 700 },
   { key: "vertical", form: "writingMode", editor: "spWritingMode", type: "mode" },
   { key: "alignH", form: "alignH", editor: "spAlignH", type: "str" },
-  { key: "alignV", form: "alignV", editor: "spAlignV", type: "str" },
   { key: "color", form: "fillColor", editor: "spFillColor", type: "str" },
+  { key: "opacity", form: "fillOpacity", editor: "spFillOpacity", type: "num", fallback: 100 },
   { key: "strokeColor", form: "strokeColor", editor: "spStrokeColor", type: "str" },
   { key: "strokeWidth", form: "strokeWidth", editor: "spStrokeWidth", type: "num", fallback: 0 },
   { key: "lineHeight", form: "lineHeight", editor: "spLineHeight", type: "num", fallback: 1.15 },
@@ -55,13 +49,14 @@ export const STYLE_FIELDS = [
 
 export function defaultStyle() {
   return {
-    font: "Microsoft JhengHei",
+    font: "源暎アンチック",
     fontSize: 32,
     fontWeight: 700,
     vertical: true,
     alignH: "center",
     alignV: "middle",
     color: "#1a1a1a",
+    opacity: 100,
     strokeColor: "#ffffff",
     strokeWidth: 3,
     lineHeight: 1.15,
@@ -100,18 +95,21 @@ export const state = {
   exporting: false,
   showOriginal: false,
   hidePaint: false,
-  workspaceId: "legacy",
+  workspaceId: "",
 };
 
 export const project = {
   dialogue: [],
   pages: {},
   defaultStyle: defaultStyle(),
+  glossary: [],
 };
 
 export const ui = {};
 export const pageHistory = new Map();
+export const importedFontList = [];
 export const fontFileByFamily = new Map();
+export const fontFacesByFamily = new Map();
 export const loadedFamilies = new Set();
 
 export const bag = {
@@ -122,11 +120,13 @@ export const bag = {
   drag: null,
   dialogueDrag: { id: null, moved: false },
   pageDrag: { name: null, moved: false },
+  styleDrag: { id: null, moved: false },
   styleEditing: false,
   restoring: false,
   textClip: { items: [], fromCut: false, pasteN: 0 },
   autoResults: [],
   autoBusy: false,
+  autoAbort: null,
   lastColorInputId: "fill-color",
   stylePresets: [],
   editingPresetId: "",
@@ -134,11 +134,19 @@ export const bag = {
   toolHold: { code: null, prev: null, long: false, timer: 0 },
   hoveredAction: "",
   formSyncRaf: 0,
+  formSyncSeq: 0,
   picking: false,
+  charSel: null,
+  glyphPick: false,
+  inlineEdit: null,
+  editArmed: false,
+  boxPtr: null,
+  editGesture: null,
+  editCaret: null,
 };
 
 function pageStoreKey() {
-  return LAST_PAGE_KEY + ":" + (state.workspaceId || "legacy");
+  return LAST_PAGE_KEY + ":" + (state.workspaceId || "none");
 }
 
 export function rememberPage(name) {

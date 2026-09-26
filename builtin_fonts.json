@@ -1,0 +1,572 @@
+{
+  "fonts": [
+    {
+      "file": "SourceHanSansTC-ExtraLight.otf",
+      "family": "思源黑體",
+      "label": "思源黑體",
+      "weight": 200,
+      "weightLabel": "ExtraLight",
+      "builtin": true
+    },
+    {
+      "file": "SourceHanSansTC-Light.otf",
+      "family": "思源黑體",
+      "label": "思源黑體",
+      "weight": 300,
+      "weightLabel": "Light",
+      "builtin": true
+    },
+    {
+      "file": "SourceHanSansTC-Normal.otf",
+      "family": "思源黑體",
+      "label": "思源黑體",
+      "weight": 350,
+      "weightLabel": "Normal",
+      "builtin": true
+    },
+    {
+      "file": "SourceHanSansTC-Regular.otf",
+      "family": "思源黑體",
+      "label": "思源黑體",
+      "weight": 400,
+      "weightLabel": "Regular",
+      "builtin": true
+    },
+    {
+      "file": "SourceHanSansTC-Medium.otf",
+      "family": "思源黑體",
+      "label": "思源黑體",
+      "weight": 500,
+      "weightLabel": "Medium",
+      "builtin": true
+    },
+    {
+      "file": "SourceHanSansTC-Bold.otf",
+      "family": "思源黑體",
+      "label": "思源黑體",
+      "weight": 700,
+      "weightLabel": "Bold",
+      "builtin": true
+    },
+    {
+      "file": "SourceHanSansTC-Heavy.otf",
+      "family": "思源黑體",
+      "label": "思源黑體",
+      "weight": 900,
+      "weightLabel": "Heavy",
+      "builtin": true
+    },
+    {
+      "file": "SourceHanSerifTC-ExtraLight.otf",
+      "family": "思源宋體",
+      "label": "思源宋體",
+      "weight": 200,
+      "weightLabel": "ExtraLight",
+      "builtin": true
+    },
+    {
+      "file": "SourceHanSerifTC-Light.otf",
+      "family": "思源宋體",
+      "label": "思源宋體",
+      "weight": 300,
+      "weightLabel": "Light",
+      "builtin": true
+    },
+    {
+      "file": "SourceHanSerifTC-Regular.otf",
+      "family": "思源宋體",
+      "label": "思源宋體",
+      "weight": 400,
+      "weightLabel": "Regular",
+      "builtin": true
+    },
+    {
+      "file": "SourceHanSerifTC-Medium.otf",
+      "family": "思源宋體",
+      "label": "思源宋體",
+      "weight": 500,
+      "weightLabel": "Medium",
+      "builtin": true
+    },
+    {
+      "file": "SourceHanSerifTC-SemiBold.otf",
+      "family": "思源宋體",
+      "label": "思源宋體",
+      "weight": 600,
+      "weightLabel": "SemiBold",
+      "builtin": true
+    },
+    {
+      "file": "SourceHanSerifTC-Bold.otf",
+      "family": "思源宋體",
+      "label": "思源宋體",
+      "weight": 700,
+      "weightLabel": "Bold",
+      "builtin": true
+    },
+    {
+      "file": "SourceHanSerifTC-Heavy.otf",
+      "family": "思源宋體",
+      "label": "思源宋體",
+      "weight": 900,
+      "weightLabel": "Heavy",
+      "builtin": true
+    },
+    {
+      "file": "GenJyuuGothicL-ExtraLight.ttf",
+      "family": "源柔ゴシックL",
+      "label": "源柔ゴシックL",
+      "weight": 200,
+      "weightLabel": "ExtraLight",
+      "builtin": true
+    },
+    {
+      "file": "GenJyuuGothicL-Light.ttf",
+      "family": "源柔ゴシックL",
+      "label": "源柔ゴシックL",
+      "weight": 300,
+      "weightLabel": "Light",
+      "builtin": true
+    },
+    {
+      "file": "GenJyuuGothicL-Normal.ttf",
+      "family": "源柔ゴシックL",
+      "label": "源柔ゴシックL",
+      "weight": 350,
+      "weightLabel": "Normal",
+      "builtin": true
+    },
+    {
+      "file": "GenJyuuGothicL-Regular.ttf",
+      "family": "源柔ゴシックL",
+      "label": "源柔ゴシックL",
+      "weight": 400,
+      "weightLabel": "Regular",
+      "builtin": true
+    },
+    {
+      "file": "GenJyuuGothicL-Medium.ttf",
+      "family": "源柔ゴシックL",
+      "label": "源柔ゴシックL",
+      "weight": 500,
+      "weightLabel": "Medium",
+      "builtin": true
+    },
+    {
+      "file": "GenJyuuGothicL-Bold.ttf",
+      "family": "源柔ゴシックL",
+      "label": "源柔ゴシックL",
+      "weight": 700,
+      "weightLabel": "Bold",
+      "builtin": true
+    },
+    {
+      "file": "GenJyuuGothicL-Heavy.ttf",
+      "family": "源柔ゴシックL",
+      "label": "源柔ゴシックL",
+      "weight": 800,
+      "weightLabel": "Heavy",
+      "builtin": true
+    },
+    {
+      "file": "GenEiAntiqueNv5-M.ttf",
+      "family": "源暎アンチック",
+      "label": "源暎アンチック",
+      "weight": 500,
+      "weightLabel": "Medium",
+      "builtin": true
+    },
+    {
+      "file": "GenEiKiwamiGo.ttf",
+      "family": "源暎きわみゴ",
+      "label": "源暎きわみゴ",
+      "weight": 900,
+      "weightLabel": "Ultra",
+      "builtin": true
+    },
+    {
+      "file": "GenEiNuGothic-EB.ttf",
+      "family": "源暎Nuゴシック",
+      "label": "源暎Nuゴシック",
+      "weight": 800,
+      "weightLabel": "ExtraBold",
+      "builtin": true
+    },
+    {
+      "file": "GenEiLateMin_v2.ttf",
+      "family": "源暎ラテミン",
+      "label": "源暎ラテミン",
+      "weight": 500,
+      "weightLabel": "Medium",
+      "builtin": true
+    },
+    {
+      "file": "GenEiRomanNotes-W9.otf",
+      "family": "源暎ロマンのーと",
+      "label": "源暎ロマンのーと",
+      "weight": 700,
+      "weightLabel": "W9",
+      "builtin": true
+    },
+    {
+      "file": "LXGWMarkerGothic.ttf",
+      "family": "霞鶩漫黑",
+      "label": "霞鶩漫黑",
+      "weight": 400,
+      "weightLabel": "Regular",
+      "builtin": true
+    },
+    {
+      "file": "LXGWWenKai-Light.ttf",
+      "family": "霞鶩文楷",
+      "label": "霞鶩文楷",
+      "weight": 300,
+      "weightLabel": "Light",
+      "builtin": true
+    },
+    {
+      "file": "LXGWWenKai-Regular.ttf",
+      "family": "霞鶩文楷",
+      "label": "霞鶩文楷",
+      "weight": 400,
+      "weightLabel": "Regular",
+      "builtin": true
+    },
+    {
+      "file": "LXGWWenKai-Medium.ttf",
+      "family": "霞鶩文楷",
+      "label": "霞鶩文楷",
+      "weight": 500,
+      "weightLabel": "Medium",
+      "builtin": true
+    },
+    {
+      "file": "Mgenplus-1cp-Thin.ttf",
+      "family": "Mgen+ 1cp",
+      "label": "Mgen+ 1cp",
+      "weight": 100,
+      "weightLabel": "Thin",
+      "builtin": true
+    },
+    {
+      "file": "Mgenplus-1cp-Light.ttf",
+      "family": "Mgen+ 1cp",
+      "label": "Mgen+ 1cp",
+      "weight": 300,
+      "weightLabel": "Light",
+      "builtin": true
+    },
+    {
+      "file": "Mgenplus-1cp-Regular.ttf",
+      "family": "Mgen+ 1cp",
+      "label": "Mgen+ 1cp",
+      "weight": 400,
+      "weightLabel": "Regular",
+      "builtin": true
+    },
+    {
+      "file": "Mgenplus-1cp-Medium.ttf",
+      "family": "Mgen+ 1cp",
+      "label": "Mgen+ 1cp",
+      "weight": 500,
+      "weightLabel": "Medium",
+      "builtin": true
+    },
+    {
+      "file": "Mgenplus-1cp-Bold.ttf",
+      "family": "Mgen+ 1cp",
+      "label": "Mgen+ 1cp",
+      "weight": 700,
+      "weightLabel": "Bold",
+      "builtin": true
+    },
+    {
+      "file": "Mgenplus-1cp-Heavy.ttf",
+      "family": "Mgen+ 1cp",
+      "label": "Mgen+ 1cp",
+      "weight": 800,
+      "weightLabel": "Heavy",
+      "builtin": true
+    },
+    {
+      "file": "Mgenplus-1cp-Black.ttf",
+      "family": "Mgen+ 1cp",
+      "label": "Mgen+ 1cp",
+      "weight": 900,
+      "weightLabel": "Black",
+      "builtin": true
+    },
+    {
+      "file": "jf-openhuninn.ttf",
+      "family": "粉圓",
+      "label": "粉圓",
+      "weight": 400,
+      "weightLabel": "Regular",
+      "builtin": true
+    },
+    {
+      "file": "TsukushiAMaru.ttf",
+      "family": "筑紫A圆",
+      "label": "筑紫A圆",
+      "weight": 400,
+      "weightLabel": "Regular",
+      "builtin": true
+    },
+    {
+      "file": "KosugiMaru-Regular.ttf",
+      "family": "小杉丸ゴシック",
+      "label": "小杉丸ゴシック",
+      "weight": 400,
+      "weightLabel": "Regular",
+      "builtin": true
+    },
+    {
+      "file": "ZenMaruGothic-Light.ttf",
+      "family": "禅丸ゴシック",
+      "label": "禅丸ゴシック",
+      "weight": 300,
+      "weightLabel": "Light",
+      "builtin": true
+    },
+    {
+      "file": "ZenMaruGothic-Regular.ttf",
+      "family": "禅丸ゴシック",
+      "label": "禅丸ゴシック",
+      "weight": 400,
+      "weightLabel": "Regular",
+      "builtin": true
+    },
+    {
+      "file": "ZenMaruGothic-Medium.ttf",
+      "family": "禅丸ゴシック",
+      "label": "禅丸ゴシック",
+      "weight": 500,
+      "weightLabel": "Medium",
+      "builtin": true
+    },
+    {
+      "file": "ZenMaruGothic-Bold.ttf",
+      "family": "禅丸ゴシック",
+      "label": "禅丸ゴシック",
+      "weight": 700,
+      "weightLabel": "Bold",
+      "builtin": true
+    },
+    {
+      "file": "ZenMaruGothic-Black.ttf",
+      "family": "禅丸ゴシック",
+      "label": "禅丸ゴシック",
+      "weight": 900,
+      "weightLabel": "Black",
+      "builtin": true
+    },
+    {
+      "file": "PopGothicCjkTc-ExtraLight.ttf",
+      "family": "大波浪圓體 CJK TC",
+      "label": "大波浪圓體 CJK TC",
+      "weight": 200,
+      "weightLabel": "ExtraLight",
+      "builtin": true
+    },
+    {
+      "file": "PopGothicCjkTc-Light.ttf",
+      "family": "大波浪圓體 CJK TC",
+      "label": "大波浪圓體 CJK TC",
+      "weight": 300,
+      "weightLabel": "Light",
+      "builtin": true
+    },
+    {
+      "file": "PopGothicCjkTc-Regular.ttf",
+      "family": "大波浪圓體 CJK TC",
+      "label": "大波浪圓體 CJK TC",
+      "weight": 400,
+      "weightLabel": "Regular",
+      "builtin": true
+    },
+    {
+      "file": "PopGothicCjkTc-SemiBold.ttf",
+      "family": "大波浪圓體 CJK TC",
+      "label": "大波浪圓體 CJK TC",
+      "weight": 600,
+      "weightLabel": "SemiBold",
+      "builtin": true
+    },
+    {
+      "file": "PopGothicCjkTc-Bold.ttf",
+      "family": "大波浪圓體 CJK TC",
+      "label": "大波浪圓體 CJK TC",
+      "weight": 700,
+      "weightLabel": "Bold",
+      "builtin": true
+    },
+    {
+      "file": "PopRumCute.otf",
+      "family": "ポプらむ☆キュート",
+      "label": "ポプらむ☆キュート",
+      "weight": 400,
+      "weightLabel": "Regular",
+      "builtin": true
+    },
+    {
+      "file": "JingNanBoBoHei-Bold.ttf",
+      "family": "荊南波波黑",
+      "label": "荊南波波黑",
+      "weight": 700,
+      "weightLabel": "Bold",
+      "builtin": true
+    },
+    {
+      "file": "MaokenAssortedSans.ttf",
+      "family": "貓啃什錦黑",
+      "label": "貓啃什錦黑",
+      "weight": 500,
+      "weightLabel": "Medium",
+      "builtin": true
+    },
+    {
+      "file": "NaikaiFont-ExtraLight.ttf",
+      "family": "內海字體",
+      "label": "內海字體",
+      "weight": 200,
+      "weightLabel": "ExtraLight",
+      "builtin": true
+    },
+    {
+      "file": "NaikaiFont-Light.ttf",
+      "family": "內海字體",
+      "label": "內海字體",
+      "weight": 300,
+      "weightLabel": "Light",
+      "builtin": true
+    },
+    {
+      "file": "NaikaiFont-Regular.ttf",
+      "family": "內海字體",
+      "label": "內海字體",
+      "weight": 400,
+      "weightLabel": "Regular",
+      "builtin": true
+    },
+    {
+      "file": "NaikaiFont-SemiBold.ttf",
+      "family": "內海字體",
+      "label": "內海字體",
+      "weight": 600,
+      "weightLabel": "SemiBold",
+      "builtin": true
+    },
+    {
+      "file": "NaikaiFont-Bold.ttf",
+      "family": "內海字體",
+      "label": "內海字體",
+      "weight": 700,
+      "weightLabel": "Bold",
+      "builtin": true
+    },
+    {
+      "file": "851TegakiZatsu.ttf",
+      "family": "851手書き雑フォント",
+      "label": "851手書き雑フォント",
+      "weight": 400,
+      "weightLabel": "Regular",
+      "builtin": true
+    },
+    {
+      "file": "ZaiZaiJia-AutoPen.ttf",
+      "family": "宅在家自動筆",
+      "label": "宅在家自動筆",
+      "weight": 400,
+      "weightLabel": "Regular",
+      "builtin": true
+    },
+    {
+      "file": "ZaiZaiJia-MarkerPen.ttf",
+      "family": "宅在家麥克筆",
+      "label": "宅在家麥克筆",
+      "weight": 400,
+      "weightLabel": "Regular",
+      "builtin": true
+    },
+    {
+      "file": "KurewaGothicCjkTc-ExtraLight.ttf",
+      "family": "苦累蛙圓體 CJK TC",
+      "label": "苦累蛙圓體 CJK TC",
+      "weight": 200,
+      "weightLabel": "ExtraLight",
+      "builtin": true
+    },
+    {
+      "file": "KurewaGothicCjkTc-Light.ttf",
+      "family": "苦累蛙圓體 CJK TC",
+      "label": "苦累蛙圓體 CJK TC",
+      "weight": 300,
+      "weightLabel": "Light",
+      "builtin": true
+    },
+    {
+      "file": "KurewaGothicCjkTc-Regular.ttf",
+      "family": "苦累蛙圓體 CJK TC",
+      "label": "苦累蛙圓體 CJK TC",
+      "weight": 400,
+      "weightLabel": "Regular",
+      "builtin": true
+    },
+    {
+      "file": "KurewaGothicCjkTc-SemiBold.ttf",
+      "family": "苦累蛙圓體 CJK TC",
+      "label": "苦累蛙圓體 CJK TC",
+      "weight": 600,
+      "weightLabel": "SemiBold",
+      "builtin": true
+    },
+    {
+      "file": "KurewaGothicCjkTc-Bold.ttf",
+      "family": "苦累蛙圓體 CJK TC",
+      "label": "苦累蛙圓體 CJK TC",
+      "weight": 700,
+      "weightLabel": "Bold",
+      "builtin": true
+    },
+    {
+      "file": "ChildFunSans.ttf",
+      "family": "游趣体",
+      "label": "游趣体",
+      "weight": 400,
+      "weightLabel": "Regular",
+      "builtin": true
+    },
+    {
+      "file": "MYuppy-Medium.ttf",
+      "family": "MYuppy",
+      "label": "MYuppy",
+      "weight": 500,
+      "weightLabel": "Medium",
+      "builtin": true
+    },
+    {
+      "file": "ComicKoin-Light.ttf",
+      "family": "コミック古印体-教漢",
+      "label": "コミック古印体-教漢",
+      "weight": 300,
+      "weightLabel": "Light",
+      "builtin": true
+    },
+    {
+      "file": "ComicKoin-Regular.ttf",
+      "family": "コミック古印体-教漢",
+      "label": "コミック古印体-教漢",
+      "weight": 400,
+      "weightLabel": "Regular",
+      "builtin": true
+    },
+    {
+      "file": "ComicKoin-Bold.ttf",
+      "family": "コミック古印体-教漢",
+      "label": "コミック古印体-教漢",
+      "weight": 700,
+      "weightLabel": "Bold",
+      "builtin": true
+    }
+  ]
+}
