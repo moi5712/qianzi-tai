@@ -53,30 +53,76 @@ function strokeSegment(x0, y0, x1, y1, erase) {
   ctx.restore();
 }
 
-function pickColor(imgX, imgY) {
-  if (!state.imgW || !state.imgH || !ui.paintCtx || !ui.baseCtx) return;
+function sampleColor(imgX, imgY) {
+  if (!state.imgW || !state.imgH || !ui.paintCtx || !ui.baseCtx) return "";
   const x = clamp(Math.floor(imgX), 0, state.imgW - 1);
   const y = clamp(Math.floor(imgY), 0, state.imgH - 1);
-  let r, g, b;
   try {
     const p = ui.paintCtx.getImageData(x, y, 1, 1).data;
-    if (p[3] > 20) {
-      r = p[0];
-      g = p[1];
-      b = p[2];
-    } else {
-      const q = ui.baseCtx.getImageData(x, y, 1, 1).data;
-      r = q[0];
-      g = q[1];
-      b = q[2];
-    }
+    const src = p[3] > 20 ? p : ui.baseCtx.getImageData(x, y, 1, 1).data;
+    return "#" + [src[0], src[1], src[2]].map((n) => n.toString(16).padStart(2, "0")).join("");
   } catch {
+    return "";
+  }
+}
+
+function paintPickPreview(hex) {
+  const el = ui.pickerCursor;
+  const swatch = el?.querySelector(".pick-swatch");
+  const label = el?.querySelector(".pick-hex");
+  if (swatch) swatch.style.background = hex || "transparent";
+  if (label) label.textContent = hex || "";
+  if (el) el.classList.toggle("has-hex", !!hex);
+  const toast = ui.toast;
+  if (!toast) return;
+  if (!hex) {
+    if (toast.classList.contains("pick-live")) {
+      toast.classList.remove("pick-live");
+      toast.hidden = true;
+      toast.textContent = "";
+    }
+    return;
+  }
+  clearTimeout(bag.toastTimer);
+  toast.classList.add("pick-live");
+  toast.hidden = false;
+  toast.style.left = "";
+  toast.style.top = "";
+  let chip = toast.querySelector(".pick-swatch");
+  if (!chip) {
+    chip = document.createElement("i");
+    chip.className = "pick-swatch";
+    toast.replaceChildren(chip, document.createTextNode(""));
+  }
+  chip.style.background = hex;
+  const text = chip.nextSibling;
+  if (text) text.textContent = hex;
+}
+
+function previewPickAt(imgX, imgY) {
+  const inside = imgX >= 0 && imgY >= 0 && imgX <= state.imgW && imgY <= state.imgH;
+  const hex = inside ? sampleColor(imgX, imgY) : "";
+  bag.pickHex = hex;
+  paintPickPreview(hex);
+  return hex;
+}
+
+function applyPickColor(imgX, imgY) {
+  const hex = sampleColor(imgX, imgY) || bag.pickHex;
+  bag.pickHex = "";
+  if (!hex) {
+    paintPickPreview("");
     toastT("pickedFail");
     return;
   }
-  const hex = "#" + [r, g, b].map((n) => n.toString(16).padStart(2, "0")).join("");
   ui.brushColor.value = hex;
+  ui.brushColor.dispatchEvent(new Event("input"));
+  paintPickPreview("");
   toastT("picked", { hex });
+}
+
+function pickColor(imgX, imgY) {
+  applyPickColor(imgX, imgY);
 }
 
 function updatePickerCursor(e) {
@@ -94,6 +140,7 @@ function updatePickerCursor(e) {
   }
   el.hidden = !show;
   ui.viewport.classList.toggle("picking", show);
+  if (!show) paintPickPreview("");
 }
 
 function updateBrushCursor(e) {
@@ -180,6 +227,9 @@ function fillLasso(points) {
 
 export {
   strokeSegment,
+  sampleColor,
+  previewPickAt,
+  applyPickColor,
   pickColor,
   updatePickerCursor,
   updateBrushCursor,

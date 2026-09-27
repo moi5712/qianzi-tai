@@ -1,5 +1,5 @@
 // --- 字體庫 ---
-import { $, ui, importedFontList } from "./store.js";
+import { $, ui, importedFontList, debounce } from "./store.js";
 import { t, toastT, confirmT } from "./copy.js";
 import { apiGet } from "./api.js";
 import {
@@ -11,7 +11,7 @@ import {
   fontDisplayLabel,
   groupedImportedFonts,
   uniqueFontFamilies,
-} from "./pages.js";
+} from "./fontload.js";
 
 let fontPreviewObserver = null;
 
@@ -251,7 +251,7 @@ function bindFontLibrary() {
     if (ui.fontModal) ui.fontModal.hidden = true;
   });
   $("#btn-fonts-import")?.addEventListener("click", () => ui.fontFile?.click());
-  ui.fontSearch?.addEventListener("input", renderFontLibrary);
+  ui.fontSearch?.addEventListener("input", debounce(renderFontLibrary, 150));
   ui.fontFile?.addEventListener("change", async () => {
     const files = [...(ui.fontFile.files || [])];
     ui.fontFile.value = "";

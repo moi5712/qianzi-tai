@@ -636,6 +636,7 @@ async function applyAutoResults() {
         ...style,
         w: box.w,
         h: box.h,
+        sizeMode: style.vertical ? "auto-width" : "auto-height",
       };
       pageEntry(item.pageName).texts.push(t);
     }

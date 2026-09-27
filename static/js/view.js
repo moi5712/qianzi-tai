@@ -1,14 +1,8 @@
 // --- 檢視與工具 ---
-import { $, $$, state, ui, bag, clamp } from "./store.js";
+import { $, $$, state, ui, bag, clamp, rotateVec } from "./store.js";
 import { t, toolHint, setStatusHint, actionHint } from "./copy.js";
 import { renderDialogue } from "./dialogue.js";
 import { updatePickerCursor } from "./paint.js";
-function rotateVec(x, y, deg) {
-  const r = (deg * Math.PI) / 180;
-  const c = Math.cos(r);
-  const s = Math.sin(r);
-  return { x: x * c - y * s, y: x * s + y * c };
-}
 
 function clientToImage(cx, cy) {
   const r = ui.viewport.getBoundingClientRect();

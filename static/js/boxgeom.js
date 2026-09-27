@@ -1,12 +1,5 @@
-import { fontFamilyCss } from "./store.js";
-import { fillTextInner, applyTextStroke } from "./glyphs.js";
-
-function rotateVec(x, y, deg) {
-  const r = ((deg || 0) * Math.PI) / 180;
-  const c = Math.cos(r);
-  const s = Math.sin(r);
-  return { x: x * c - y * s, y: x * s + y * c };
-}
+import { fontFamilyCss, rotateVec } from "./store.js";
+import { fillTextInner, applyTextStroke, tokenizeText, toTcyText, charStyleAt, rangeForOffsets } from "./glyphs.js";
 
 export const BOX_MIN = 24;
 export const BOX_MAX = 4000;
@@ -48,17 +41,100 @@ function boxPad() {
   return padCache;
 }
 
+export function textInnerStyle(t) {
+  const h = t.alignH || "center";
+  if (t.vertical) {
+    return {
+      jc: "center",
+      ai: { left: "flex-start", center: "center", right: "flex-end" }[h] || "center",
+      textAlign: { left: "start", center: "center", right: "end" }[h] || "center",
+    };
+  }
+  return {
+    jc: { left: "flex-start", center: "center", right: "flex-end" }[h] || "center",
+    ai: "center",
+    textAlign: h,
+  };
+}
+
+export function sizeInner(inner, t) {
+  if (!inner) return;
+  inner.style.boxSizing = "border-box";
+  inner.style.overflow = "hidden";
+  if (t.vertical) {
+    inner.style.width = "max-content";
+    inner.style.height = "100%";
+    inner.style.minWidth = "max-content";
+    inner.style.minHeight = "0";
+    inner.style.maxWidth = "none";
+    inner.style.maxHeight = "100%";
+  } else {
+    inner.style.width = "100%";
+    inner.style.height = "max-content";
+    inner.style.minWidth = "0";
+    inner.style.minHeight = "0";
+    inner.style.maxWidth = "100%";
+    inner.style.maxHeight = "none";
+  }
+}
+
+export function applyPreviewTextStyle(inner, t) {
+  if (!inner) return;
+  const { textAlign } = textInnerStyle(t);
+  inner.style.fontFamily = fontFamilyCss(t.font);
+  inner.style.fontSize = (t.fontSize || 16) + "px";
+  inner.style.fontWeight = t.fontWeight || "400";
+  inner.style.lineHeight = String(t.lineHeight || 1);
+  inner.style.letterSpacing = (t.letterSpacing || 0) + "px";
+  inner.style.writingMode = t.vertical ? "vertical-rl" : "horizontal-tb";
+  inner.style.textOrientation = "mixed";
+  inner.style.whiteSpace = "pre-wrap";
+  inner.style.wordBreak = "break-word";
+  inner.style.textAlign = textAlign;
+  inner.style.flex = "0 0 auto";
+  applyTextStroke(inner, t.strokeWidth, t.strokeColor);
+  sizeInner(inner, t);
+}
+
 function styleMeasurer(el, t) {
-  el.style.fontFamily = fontFamilyCss(t.font);
-  el.style.fontSize = (t.fontSize || 16) + "px";
-  el.style.fontWeight = t.fontWeight || "400";
-  el.style.lineHeight = String(t.lineHeight || 1);
-  el.style.letterSpacing = (t.letterSpacing || 0) + "px";
-  el.style.writingMode = t.vertical ? "vertical-rl" : "horizontal-tb";
-  el.style.textOrientation = "mixed";
-  el.style.whiteSpace = "pre-wrap";
-  el.style.wordBreak = "break-word";
-  applyTextStroke(el, t.strokeWidth, t.strokeColor);
+  applyPreviewTextStyle(el, t);
+}
+
+export function layoutGlyphs(t) {
+  const inner = ensureMeasurer();
+  const host = measurerHost;
+  const { jc, ai } = textInnerStyle(t);
+  host.style.width = (t.w || 0) + "px";
+  host.style.height = (t.h || 0) + "px";
+  host.style.transform = "none";
+  host.style.justifyContent = jc;
+  host.style.alignItems = ai;
+  applyPreviewTextStyle(inner, t);
+  fillTextInner(inner, t);
+  const origin = host.getBoundingClientRect();
+  const glyphs = [];
+  for (const tok of tokenizeText(t.text, t.vertical)) {
+    if (tok.text === "\n" || tok.text === "\r") continue;
+    let r;
+    try {
+      r = rangeForOffsets(inner, tok.start, tok.end).getBoundingClientRect();
+    } catch {
+      continue;
+    }
+    if (r.width <= 0 && r.height <= 0) continue;
+    glyphs.push({
+      x: r.left - origin.left + r.width / 2,
+      y: r.top - origin.top + r.height / 2,
+      w: r.width,
+      h: r.height,
+      text: tok.combine ? toTcyText(tok.text) : tok.text,
+      style: { ...charStyleAt(t, tok.start) },
+      sideways: !!(t.vertical && tok.sideways),
+    });
+  }
+  host.style.width = "auto";
+  host.style.height = "auto";
+  return glyphs;
 }
 
 export function normalizeSizeMode(t) {
@@ -70,6 +146,10 @@ export function normalizeSizeMode(t) {
 
 export function measureTextMetrics(t, wrap = {}) {
   const el = ensureMeasurer();
+  if (measurerHost) {
+    measurerHost.style.width = "auto";
+    measurerHost.style.height = "auto";
+  }
   const pad = boxPad();
   styleMeasurer(el, t);
   fillTextInner(el, t);

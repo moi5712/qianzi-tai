@@ -139,7 +139,7 @@ def _jp_probe_font(size: int):
 
 def test_local_ocr() -> dict:
     try:
-        from local_ocr import get_engine, _image_source, _run_ocr
+        from local_ocr import probe_sample
         from PIL import Image, ImageDraw
     except ImportError:
         return {"ok": False, "code": "need_local_ocr"}
@@ -148,7 +148,7 @@ def test_local_ocr() -> dict:
         draw = ImageDraw.Draw(im)
         font = _jp_probe_font(72)
         draw.text((48, 36), "試験", fill=(20, 20, 20), font=font)
-        _run_ocr(get_engine(), _image_source(im))
+        probe_sample(im)
         return {"ok": True, "code": "local_ocr_ok"}
     except ValueError as err:
         if "尚未安裝" in str(err):

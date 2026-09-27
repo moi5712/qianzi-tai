@@ -6,6 +6,7 @@ import { markDirty } from "./api.js";
 import { setTool } from "./view.js";
 import { syncTextEl, renderTexts, selectOnly, selectTextsByDialogue, selectTextsByDialogueIds, revealDialogueInList, focusDialoguePlacement, removeTextsByDialogue } from "./text.js";
 import { clampRuns } from "./glyphs.js";
+import { dialogueVisible, parseBulk as parseBulkRaw } from "./dialogue-util.js";
 function placedPageOf(id, prefer = state.pageName) {
   let first = "";
   for (const p of state.pages) {
@@ -144,16 +145,28 @@ function makeDialogueRow(d, n, used) {
   row.draggable = true;
   row.dataset.id = d.id;
   row.innerHTML = `<div class="meta"><span class="line-index">#${n}</span>
-    <span class="line-actions"><button type="button" class="line-del" aria-label="${t("ui.deleteLine")}">×</button></span></div>
+    <span class="line-actions">
+      <button type="button" class="line-unplace" aria-label="${t("ui.unplaceLine")}" ${isUsed ? "" : "hidden"}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 4.5 L4.5 19.5"/><path d="M4.5 4.5 L19.5 19.5"/></svg>
+      </button>
+      <button type="button" class="line-del" aria-label="${t("ui.deleteLine")}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </button>
+    </span></div>
     <div class="body" contenteditable="true" spellcheck="false" data-placeholder="${t("placeholders.dialogueEmpty")}"></div>${d.src ? '<div class="src"></div>' : ""}`;
   const body = row.querySelector(".body");
   body.draggable = false;
   body.textContent = d.text;
   if (d.src) row.querySelector(".src").textContent = d.src;
+  row.querySelector(".line-unplace").addEventListener("click", (e) => {
+    e.stopPropagation();
+    unplaceDialogue(d.id);
+  });
   row.querySelector(".line-del").addEventListener("click", (e) => {
     e.stopPropagation();
     deleteDialogue(d.id);
   });
+  bindHint(row.querySelector(".line-unplace"), "line-unplace");
   bindHint(row.querySelector(".line-del"), "line-del");
   body.addEventListener("pointerdown", () => {
     row.draggable = false;
@@ -163,7 +176,7 @@ function makeDialogueRow(d, n, used) {
   });
   row.addEventListener("click", async (e) => {
     if (bag.dialogueDrag.moved) return;
-    if (e.target.closest(".line-del")) return;
+    if (e.target.closest(".line-del, .line-unplace")) return;
     if (e.shiftKey) {
       toggleDialogueId(d.id);
       setTool("text");
@@ -193,7 +206,7 @@ function makeDialogueRow(d, n, used) {
     }
   });
   row.addEventListener("dblclick", async (e) => {
-    if (e.target.closest(".line-del")) return;
+    if (e.target.closest(".line-del, .line-unplace")) return;
     const page = placedPageOf(d.id);
     if (!page || page === state.pageName) return;
     e.preventDefault();
@@ -250,7 +263,7 @@ function makeDialogueRow(d, n, used) {
     }
   });
   row.addEventListener("dragstart", (e) => {
-    if (e.target.closest(".line-del") || e.target.closest(".body")) {
+    if (e.target.closest(".line-del, .line-unplace") || e.target.closest(".body")) {
       e.preventDefault();
       return;
     }
@@ -289,8 +302,8 @@ function makeFolder(key, title, items, used) {
     if (bag.dialogueDrag.moved) return;
     if (state.collapsedFolders.has(key)) state.collapsedFolders.delete(key);
     else state.collapsedFolders.add(key);
+    wrap.classList.toggle("collapsed", state.collapsedFolders.has(key));
     markDirty();
-    renderDialogue();
   });
   head.addEventListener("dragover", (e) => {
     if (!bag.dialogueDrag.id) return;
@@ -330,39 +343,206 @@ function makeFolder(key, title, items, used) {
   return wrap;
 }
 
-function renderDialogue() {
-  const used = usedDialogueIds();
-  const filter = state.dialogueFilter;
-  ui.dialogueList.innerHTML = "";
-  const visible = (d) => {
-    const isUsed = used.has(d.id);
-    if (filter === "used" && !isUsed) return false;
-    if (filter === "unused" && isUsed) return false;
-    return true;
-  };
-  const loose = project.dialogue.filter((d) => !dialogueFolderOf(d) && visible(d));
+let lastDialogueFilter = null;
+
+function desiredFolders(used, filter) {
+  const folders = [];
+  const loose = project.dialogue.filter((d) => !dialogueFolderOf(d) && dialogueVisible(d, used, filter));
   if (loose.length || filter === "all") {
-    ui.dialogueList.appendChild(makeFolder("", t("ui.unusedFolder"), loose, used));
+    folders.push({ key: "", title: t("ui.unusedFolder"), items: loose });
   }
   for (const p of state.pages) {
-    const items = project.dialogue.filter((d) => dialogueFolderOf(d) === p.name && visible(d));
+    const items = project.dialogue.filter((d) => dialogueFolderOf(d) === p.name && dialogueVisible(d, used, filter));
     if (!items.length && filter !== "all") continue;
-    ui.dialogueList.appendChild(makeFolder(p.name, pageLabel(p.name), items, used));
+    folders.push({ key: p.name, title: pageLabel(p.name), items });
+  }
+  return folders;
+}
+
+function updateDialogueRow(row, d, n, used) {
+  const isUsed = used.has(d.id);
+  const selected = state.selectedDialogueIds.has(d.id) || d.id === state.selectedDialogueId;
+  row.classList.toggle("selected", selected);
+  row.classList.toggle("used", isUsed);
+  row.classList.toggle("unused", !isUsed);
+  const unplace = row.querySelector(".line-unplace");
+  if (unplace) unplace.hidden = !isUsed;
+  const index = row.querySelector(".line-index");
+  if (index) index.textContent = "#" + n;
+  const body = row.querySelector(".body");
+  if (body && document.activeElement !== body && body.textContent !== d.text) {
+    body.textContent = d.text;
+  }
+  let srcEl = row.querySelector(".src");
+  if (d.src) {
+    if (!srcEl) {
+      srcEl = document.createElement("div");
+      srcEl.className = "src";
+      row.appendChild(srcEl);
+    }
+    if (srcEl.textContent !== d.src) srcEl.textContent = d.src;
+  } else if (srcEl) {
+    srcEl.remove();
   }
 }
 
-function deleteDialogue(id) {
-  pushHistory({ paint: false, projectData: true, allPages: true });
-  project.dialogue = project.dialogue.filter((d) => d.id !== id);
-  removeTextsByDialogue(id);
-  if (state.selectedDialogueIds.has(id)) state.selectedDialogueIds.delete(id);
-  if (state.selectedDialogueId === id) {
+function syncFolderLines(wrap, items, used) {
+  const body = wrap.querySelector(".folder-body");
+  if (!body) return;
+  const have = new Map();
+  for (const el of dialogueLinesOf(body)) {
+    if (el.dataset.id) have.set(el.dataset.id, el);
+  }
+  const keep = new Set(items.map((d) => d.id));
+  for (const [id, el] of have) {
+    if (!keep.has(id)) el.remove();
+  }
+  items.forEach((d, i) => {
+    let row = have.get(d.id);
+    if (!row || !row.isConnected) row = makeDialogueRow(d, i + 1, used);
+    else updateDialogueRow(row, d, i + 1, used);
+    const next = body.children[i];
+    if (next !== row) body.insertBefore(row, next || null);
+  });
+}
+
+function renderDialogueFull(used, folders) {
+  ui.dialogueList.innerHTML = "";
+  for (const folder of folders) {
+    ui.dialogueList.appendChild(makeFolder(folder.key, folder.title, folder.items, used));
+  }
+}
+
+function renderDialogue() {
+  if (!ui.dialogueList) return;
+  const used = usedDialogueIds();
+  const filter = state.dialogueFilter;
+  const folders = desiredFolders(used, filter);
+  const filterChanged = lastDialogueFilter !== null && lastDialogueFilter !== filter;
+  const currentIds = new Set(project.dialogue.map((d) => d.id));
+  const existingIds = [...ui.dialogueList.querySelectorAll(".line[data-id]")].map((el) => el.dataset.id);
+  const stale = existingIds.length > 0 && !existingIds.some((id) => currentIds.has(id));
+  lastDialogueFilter = filter;
+  if (filterChanged || stale || !ui.dialogueList.querySelector(".folder")) {
+    renderDialogueFull(used, folders);
+    return;
+  }
+  const have = new Map();
+  for (const el of [...ui.dialogueList.children]) {
+    if (el.classList.contains("folder")) have.set(el.dataset.folder ?? "", el);
+  }
+  const keep = new Set(folders.map((f) => f.key));
+  for (const [key, el] of have) {
+    if (!keep.has(key)) el.remove();
+  }
+  folders.forEach((folder, i) => {
+    let wrap = have.get(folder.key);
+    if (!wrap || !wrap.isConnected) {
+      wrap = makeFolder(folder.key, folder.title, folder.items, used);
+    } else {
+      wrap.classList.toggle("collapsed", state.collapsedFolders.has(folder.key));
+      const title = wrap.querySelector(".folder-title");
+      if (title && title.textContent !== folder.title) title.textContent = folder.title;
+      const count = wrap.querySelector(".folder-count");
+      if (count) count.textContent = String(folder.items.length);
+      syncFolderLines(wrap, folder.items, used);
+    }
+    const next = ui.dialogueList.children[i];
+    if (next !== wrap) ui.dialogueList.insertBefore(wrap, next || null);
+  });
+}
+
+function deleteDialogues(ids, { history = true } = {}) {
+  const drop = [...new Set((ids || []).filter(Boolean))];
+  if (!drop.length) return false;
+  if (history) pushHistory({ paint: false, projectData: true, allPages: true });
+  const gone = new Set(drop);
+  project.dialogue = project.dialogue.filter((d) => !gone.has(d.id));
+  for (const id of drop) removeTextsByDialogue(id);
+  for (const id of drop) {
+    if (state.selectedDialogueIds.has(id)) state.selectedDialogueIds.delete(id);
+  }
+  if (gone.has(state.selectedDialogueId)) {
     state.selectedDialogueId = [...state.selectedDialogueIds].at(-1) || project.dialogue[0]?.id || null;
     if (state.selectedDialogueId) state.selectedDialogueIds.add(state.selectedDialogueId);
   }
   renderTexts();
   renderDialogue();
   markDirty();
+  return true;
+}
+
+function unplaceDialogues(ids) {
+  const drop = [...new Set((ids || []).filter((id) => id && usedDialogueIds().has(id)))];
+  if (!drop.length) return false;
+  pushHistory({ paint: false, projectData: true, allPages: true });
+  for (const id of drop) removeTextsByDialogue(id);
+  renderTexts();
+  renderDialogue();
+  markDirty();
+  return true;
+}
+
+function unplaceDialogue(id) {
+  return unplaceDialogues([id]);
+}
+
+function unplaceSelectedDialogues() {
+  return unplaceDialogues(selectedDialogueList());
+}
+
+function deleteDialogue(id) {
+  return deleteDialogues([id]);
+}
+
+function deleteSelectedDialogues() {
+  return deleteDialogues(selectedDialogueList());
+}
+
+function copySelectedDialogues(fromCut = false) {
+  const items = selectedDialogueList()
+    .map((id) => project.dialogue.find((d) => d.id === id))
+    .filter(Boolean);
+  if (!items.length) return false;
+  bag.dialogueClip = {
+    items: items.map((d) => JSON.parse(JSON.stringify(d))),
+    fromCut,
+    pasteN: 0,
+  };
+  return true;
+}
+
+function cutSelectedDialogues() {
+  const ids = selectedDialogueList();
+  if (!copySelectedDialogues(true)) return false;
+  return deleteDialogues(ids);
+}
+
+function pasteDialogues({ pageName } = {}) {
+  if (!bag.dialogueClip.items.length) return false;
+  pushHistory({ paint: false, projectData: true, allPages: true });
+  const folder = pageName
+    ?? project.dialogue.find((d) => d.id === state.selectedDialogueId)?.pageName
+    ?? state.pageName
+    ?? "";
+  const clones = bag.dialogueClip.items.map((src) => {
+    const d = JSON.parse(JSON.stringify(src));
+    d.id = uid("d");
+    d.pageName = folder;
+    return d;
+  });
+  let at = project.dialogue.length;
+  const sel = state.selectedDialogueId;
+  if (sel) {
+    const i = project.dialogue.findIndex((d) => d.id === sel);
+    if (i >= 0) at = i + 1;
+  }
+  project.dialogue.splice(at, 0, ...clones);
+  selectDialogues(clones.map((d) => d.id));
+  renderDialogue();
+  revealDialogueInList(state.selectedDialogueIds);
+  markDirty();
+  return true;
 }
 
 function resolvePageName(num) {
@@ -377,43 +557,21 @@ function resolvePageName(num) {
   );
 }
 
-function takePageMark(text) {
-  const raw = String(text || "").trim();
-  const mark = /^【\s*(\d+)\s*】$/;
-  const full = raw.match(mark);
-  if (full) return { page: resolvePageName(full[1]), rest: "" };
-  const lines = raw.split("\n");
-  const first = (lines[0] || "").trim();
-  const head = first.match(mark);
-  if (!head) return { page: null, rest: raw };
-  return { page: resolvePageName(head[1]), rest: lines.slice(1).join("\n").trim() };
+function setFoldersCollapsed(collapsed) {
+  const keys = [...ui.dialogueList.querySelectorAll(".folder")].map((el) => el.dataset.folder ?? "");
+  if (!keys.length) return;
+  for (const key of keys) {
+    if (collapsed) state.collapsedFolders.add(key);
+    else state.collapsedFolders.delete(key);
+  }
+  $$(".folder", ui.dialogueList).forEach((wrap) => {
+    wrap.classList.toggle("collapsed", state.collapsedFolders.has(wrap.dataset.folder ?? ""));
+  });
+  markDirty();
 }
 
 function parseBulk(raw, blank, bilingual) {
-  const text = String(raw || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
-  if (!text) return [];
-  const chunks = blank
-    ? text.split(/\n[ \t]*\n+/).map((s) => s.trim()).filter(Boolean)
-    : text.split("\n").map((s) => s.trim()).filter(Boolean);
-  let currentPage = "";
-  const rows = [];
-  for (const chunk of chunks) {
-    const { page, rest } = takePageMark(chunk);
-    if (page !== null) currentPage = page;
-    if (!rest) continue;
-    if (!bilingual) {
-      rows.push({ id: uid("d"), text: rest, src: "", pageName: currentPage });
-      continue;
-    }
-    const parts = rest.split(/\t+| *\| */);
-    rows.push({
-      id: uid("d"),
-      src: (parts[0] || "").trim(),
-      text: (parts[1] || parts[0] || "").trim(),
-      pageName: currentPage,
-    });
-  }
-  return rows;
+  return parseBulkRaw(raw, blank, bilingual, { uid, resolvePage: resolvePageName });
 }
 
 export {
@@ -425,5 +583,12 @@ export {
   markListInsert,
   moveArrayItem,
   renderDialogue,
+  setFoldersCollapsed,
   parseBulk,
+  copySelectedDialogues,
+  cutSelectedDialogues,
+  pasteDialogues,
+  deleteSelectedDialogues,
+  unplaceDialogue,
+  unplaceSelectedDialogues,
 };

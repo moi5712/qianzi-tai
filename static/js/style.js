@@ -1,12 +1,12 @@
 // --- 樣式 ---
-import { $, $$, project, ui, bag, STYLE_FIELDS, STYLE_PRESET_KEY, APPLY_PROPS_KEY, defaultStyle, uid, clamp, fontFacesByFamily, loadedFamilies } from "./store.js";
+import { $, $$, project, ui, bag, STYLE_FIELDS, STYLE_PRESET_KEY, APPLY_PROPS_KEY, defaultStyle, uid, clamp, fontFacesByFamily, loadedFamilies, selectedDialogueList } from "./store.js";
 import { t, toastT } from "./copy.js";
 import { pushHistory } from "./history.js";
 import { markDirty } from "./api.js";
-import { selectedText, selectedTexts, syncTextEl, refreshTextPaint, renderTexts, textInnerStyle, commitInlineText, restoreEditSelection } from "./text.js";
-import { growBoxForText, measureTextMetrics, normalizeSizeMode, applySizeMode } from "./boxgeom.js";
+import { selectedText, selectedTexts, syncTextEl, refreshTextPaint, renderTexts, commitInlineText, restoreEditSelection } from "./text.js";
+import { growBoxForText, measureTextMetrics, normalizeSizeMode, applySizeMode, textInnerStyle } from "./boxgeom.js";
 import { RUN_KEYS, applyRunStyle, activeCharSel, stripRunKey, applyTextStroke } from "./glyphs.js";
-import { ensureFontLoaded } from "./pages.js";
+import { ensureFontLoaded } from "./fontload.js";
 import { fillRange, colorWithAlpha } from "./color.js";
 import { listInsertAt, markListInsert, moveArrayItem } from "./dialogue.js";
 function unifyAlignH(t) {
@@ -233,21 +233,15 @@ function paintSelectedTexts(targets) {
 }
 
 function estimateBox(text, style) {
-  const lines = (text || "　").split("\n");
-  const fs = style.fontSize;
-  if (style.vertical) {
-    const cols = Math.max(1, lines.length);
-    const longest = Math.max(...lines.map((l) => [...l].length), 4);
-    return {
-      w: Math.ceil(fs * 1.55 * cols + 10),
-      h: Math.ceil(fs * style.lineHeight * longest + 14),
-    };
-  }
-  const longest = Math.max(...lines.map((l) => [...l].length), 4);
-  return {
-    w: Math.ceil(fs * 0.95 * longest + 18),
-    h: Math.ceil(fs * style.lineHeight * lines.length + 16),
+  const probe = {
+    ...style,
+    text: text || "　",
+    w: style.w || (style.vertical ? 86 : 400),
+    h: style.h || (style.vertical ? 400 : 170),
+    sizeMode: style.vertical ? "auto-width" : "auto-height",
   };
+  applySizeMode(probe);
+  return { w: probe.w, h: probe.h };
 }
 
 function measureTextBox(t) {
@@ -279,6 +273,82 @@ function fitSelectedBoxes({ width = true, height = true } = {}) {
   const prim = selectedText();
   if (prim) writeStyleToForm(prim);
   markDirty();
+}
+
+const STYLE_COPY_KEYS = [
+  "font", "fontSize", "fontWeight", "vertical", "alignH", "alignV",
+  "color", "opacity", "strokeColor", "strokeWidth",
+  "lineHeight", "letterSpacing", "rotation",
+];
+
+function snapshotStyle(t) {
+  const s = defaultStyle();
+  if (!t) return s;
+  for (const key of STYLE_COPY_KEYS) {
+    if (t[key] !== undefined) s[key] = t[key];
+  }
+  return JSON.parse(JSON.stringify(s));
+}
+
+function firstTextOfDialogues(ids) {
+  const want = new Set(ids || []);
+  if (!want.size) return null;
+  for (const page of Object.values(project.pages)) {
+    for (const t of page.texts || []) {
+      if (t.dialogueId && want.has(t.dialogueId)) return t;
+    }
+  }
+  return null;
+}
+
+function textsOfDialogues(ids) {
+  const want = new Set(ids || []);
+  const out = [];
+  if (!want.size) return out;
+  for (const page of Object.values(project.pages)) {
+    for (const t of page.texts || []) {
+      if (t.dialogueId && want.has(t.dialogueId)) out.push(t);
+    }
+  }
+  return out;
+}
+
+function styleSource() {
+  return selectedText() || firstTextOfDialogues(selectedDialogueList()) || readStyleFromForm();
+}
+
+function copySelectedStyle() {
+  bag.styleClip = snapshotStyle(styleSource());
+  toastT("styleCopied");
+  return true;
+}
+
+function pasteCopiedStyle() {
+  if (!bag.styleClip) {
+    toastT("styleClipEmpty");
+    return false;
+  }
+  const style = snapshotStyle(bag.styleClip);
+  let targets = selectedTexts();
+  if (!targets.length) targets = textsOfDialogues(selectedDialogueList());
+  if (!targets.length) {
+    Object.assign(project.defaultStyle, style);
+    writeStyleToForm(style);
+    toastT("stylePastedForm");
+    return true;
+  }
+  pushHistory({ paint: false, projectData: true, allPages: true });
+  for (const t of targets) {
+    commitInlineText(t);
+    Object.assign(t, style);
+    for (const key of RUN_KEYS) stripRunKey(t, key);
+  }
+  paintSelectedTexts(targets);
+  const prim = selectedText();
+  if (prim) writeStyleToForm(prim);
+  markDirty();
+  toastT("stylePasted");
+  return true;
 }
 
 function applySizeModeToSelected(mode) {
@@ -1016,4 +1086,6 @@ export {
   decorateNumberInputs,
   bindSelectWheel,
   applySizeModeToSelected,
+  copySelectedStyle,
+  pasteCopiedStyle,
 };

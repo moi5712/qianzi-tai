@@ -7,6 +7,7 @@
     "unusedFolder": "未分類",
     "measureSample": "對白",
     "deleteLine": "刪除這則對白",
+    "unplaceLine": "取消放置這則對白",
     "deleteFail": "刪除失敗",
     "requestFail": "失敗",
     "glossaryDel": "刪除"
@@ -30,21 +31,18 @@
     "brush-hard": "筆刷硬度",
     "brush-color": "顏色",
     "btn-clear-paint": "清除　刪除本頁所有覆蓋",
-    "btn-hide-paint": "隱藏　只隱藏覆蓋，不隱藏文字",
-    "btn-hide-paint-on": "還原　顯示覆蓋層，文字維持可見",
+    "btn-hide-paint": "隱藏覆蓋",
+    "btn-hide-paint-on": "顯示覆蓋",
     "btn-hide-text": "顯示原圖",
     "btn-hide-text-on": "顯示修改",
     "btn-fit": "適合畫面",
     "btn-fit-w": "適應寬度　讓文字框寬度貼齊文字",
     "btn-fit-h": "適應高度　讓文字框高度貼齊文字",
     "zoom-label": "顯示比例",
-    "line-del": "刪除　刪除這則對白",
-    "btn-unplace-text": "移除對白　將對白從本頁移除，不刪除對白",
-    "btn-del-text": "刪除對白　將對白從資料庫刪除",
-    "btn-open-project": "開啟　選擇圖片資料夾作為專案",
-    "btn-new-project": "新建　在空資料夾建立新專案",
-    "btn-style-from-current": "套用目前設定　把右側文字樣式寫入這個樣式",
-    "btn-fonts": "字體　匯入、重新命名或刪除字體"
+    "line-del": "刪除　（Delete）",
+    "line-unplace": "取消放置　（Backspace）",
+    "btn-copy-style": "複製樣式　（Ctrl+Shift+C）",
+    "btn-paste-style": "貼上樣式　（Ctrl+Shift+V）"
   },
 
   "font": {
@@ -92,7 +90,7 @@
     "clearPaint": "清除本頁塗抹？原文會再出現。",
     "autoMany": "將檢測 {n} 頁{extra}。繼續？",
     "autoManyLocal": "（本地 OCR，翻譯仍會呼叫 API）",
-    "deleteFont": "刪除字體「{name}」？已套用此字體的對白會改用備援字體顯示。"
+    "deleteFont": "刪除字體「{name}」？已套用此字體的對白會改回預設字體。"
   },
 
   "log": {
@@ -125,6 +123,10 @@
     "deleted": "已刪除 {name}",
     "presetApplied": "已套用「{name}」",
     "presetFromCurrent": "已套用目前設定",
+    "styleCopied": "已複製樣式",
+    "styleClipEmpty": "尚未複製樣式",
+    "stylePasted": "已貼上樣式",
+    "stylePastedForm": "已貼到目前樣式",
     "swatchDup": "這個顏色已在色票裡",
     "swatchFull": "色票已達到上限",
     "swatchAdd": "已加入色票",

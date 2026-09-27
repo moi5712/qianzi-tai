@@ -1,15 +1,12 @@
 // --- 歷史 ---
-import { $, state, project, ui, pageHistory, bag, pageEntry } from "./store.js";
-import { renderTexts, selectedText, revealDialogueInList } from "./text.js";
+import { $, state, project, ui, pageHistory, bag, pageEntry, selectedDialogueList } from "./store.js";
+import { renderTexts, selectedText, revealDialogueInList, refreshSelection, selectTextsByDialogueIds } from "./text.js";
 import { renderDialogue } from "./dialogue.js";
 import { writeStyleToForm } from "./style.js";
 import { saveEraseSoon, markDirty } from "./api.js";
 function clonePaint() {
-  const c = document.createElement("canvas");
-  c.width = ui.paint.width;
-  c.height = ui.paint.height;
-  c.getContext("2d").drawImage(ui.paint, 0, 0);
-  return c;
+  if (!ui.paintCtx || !ui.paint.width) return null;
+  return ui.paintCtx.getImageData(0, 0, ui.paint.width, ui.paint.height);
 }
 
 function cloneJson(value) {
@@ -44,9 +41,12 @@ function captureState({ paint = true, projectData = true, allPages = false } = {
 
 function applyState(entry) {
   bag.restoring = true;
-  if (entry.paint) {
-    ui.paintCtx.clearRect(0, 0, ui.paint.width, ui.paint.height);
-    ui.paintCtx.drawImage(entry.paint, 0, 0);
+  if (entry.paint && ui.paintCtx) {
+    try {
+      ui.paintCtx.putImageData(entry.paint, 0, 0);
+    } catch {
+      ui.paintCtx.clearRect(0, 0, ui.paint.width, ui.paint.height);
+    }
     saveEraseSoon();
   }
   if (entry.pages) {
@@ -63,14 +63,17 @@ function applyState(entry) {
   if (entry.selectedDialogueId !== undefined) state.selectedDialogueId = entry.selectedDialogueId;
   if (entry.selectedDialogueIds) state.selectedDialogueIds = new Set(entry.selectedDialogueIds);
   else if (entry.selectedDialogueId) state.selectedDialogueIds = new Set([entry.selectedDialogueId]);
-  if (entry.pages) {
-    renderTexts();
-    const t = selectedText();
-    if (t) writeStyleToForm(t);
-    else writeStyleToForm(project.defaultStyle);
-  }
+  if (entry.pages) renderTexts();
   if (entry.dialogue) renderDialogue();
-  revealDialogueInList(state.selectedDialogueIds);
+  if (state.selectedTextIds.size) {
+    refreshSelection();
+    const t = selectedText();
+    writeStyleToForm(t || project.defaultStyle);
+  } else {
+    selectTextsByDialogueIds(selectedDialogueList());
+    revealDialogueInList(state.selectedDialogueIds);
+    writeStyleToForm(selectedText() || project.defaultStyle);
+  }
   bag.restoring = false;
   markDirty();
 }

@@ -36,8 +36,11 @@ export function confirmT(key, vars) {
 }
 
 export function toast(msg, ms) {
+  ui.toast.classList.remove("pick-live");
   ui.toast.hidden = false;
   ui.toast.textContent = msg;
+  ui.toast.style.left = "";
+  ui.toast.style.top = "";
   clearTimeout(bag.toastTimer);
   const wait = Number(ms);
   bag.toastTimer = setTimeout(() => {

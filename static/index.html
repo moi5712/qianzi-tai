@@ -4,32 +4,42 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>嵌字台</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260926viewpad" />
+  <link rel="stylesheet" href="/static/styles.css?v=20260928fold1" />
 </head>
 <body>
   <div id="app">
     <header class="topbar">
-      <div class="brand">
+      <nav class="menubar" aria-label="主選單">
         <span class="mark" aria-hidden="true"><svg class="filled" viewBox="0 0 640 640"><path d="M128 512L512 512C547.3 512 576 483.3 576 448L576 208C576 172.7 547.3 144 512 144L362.7 144C355.8 144 349 141.8 343.5 137.6L305.1 108.8C294 100.5 280.5 96 266.7 96L128 96C92.7 96 64 124.7 64 160L64 448C64 483.3 92.7 512 128 512z"/></svg></span>
-        <span id="project-name" class="project-name">未開啟專案</span>
-      </div>
-      <div class="top-actions">
-        <div class="top-group">
-          <button type="button" id="btn-fonts">字體</button>
-          <input id="font-file" type="file" accept=".ttf,.otf,.woff,.woff2" multiple hidden />
-          <button type="button" id="btn-api-settings">API 設定</button>
-          <button type="button" id="btn-help">說明</button>
+        <div class="menu-root">
+          <button type="button" class="menu-btn" data-menu="file" aria-haspopup="true" aria-expanded="false">檔案</button>
+          <div id="menu-file" class="ctx-menu app-menu" hidden role="menu">
+            <button type="button" id="btn-open-project" role="menuitem">開啟</button>
+            <button type="button" id="btn-new-project" role="menuitem">新建</button>
+            <button type="button" id="btn-import-page" role="menuitem">匯入圖片</button>
+            <i class="menu-sep" aria-hidden="true"></i>
+            <button type="button" id="btn-save" role="menuitem">儲存專案<span class="kbd">Ctrl+S</span></button>
+            <button type="button" id="btn-export" role="menuitem">匯出</button>
+          </div>
         </div>
-        <i class="tool-sep" aria-hidden="true"></i>
-        <div class="top-group">
-          <button type="button" id="btn-open-project">開啟</button>
-          <button type="button" id="btn-new-project">新建</button>
-          <button type="button" id="btn-import-page">匯入圖片</button>
-          <input id="page-file" type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" multiple hidden />
-          <button type="button" id="btn-save">儲存專案</button>
-          <button type="button" id="btn-export">匯出</button>
+        <div class="menu-root">
+          <button type="button" class="menu-btn" data-menu="settings" aria-haspopup="true" aria-expanded="false">設定</button>
+          <div id="menu-settings" class="ctx-menu app-menu" hidden role="menu">
+            <button type="button" id="btn-fonts" role="menuitem">字體</button>
+            <button type="button" id="btn-api-settings" role="menuitem">API 設定</button>
+          </div>
         </div>
-      </div>
+        <div class="menu-root">
+          <button type="button" class="menu-btn" data-menu="help" aria-haspopup="true" aria-expanded="false">說明</button>
+          <div id="menu-help" class="ctx-menu app-menu" hidden role="menu">
+            <button type="button" id="btn-help" role="menuitem">使用說明</button>
+            <button type="button" id="btn-keys" role="menuitem">快捷鍵</button>
+          </div>
+        </div>
+      </nav>
+      <span id="project-name" class="project-name">未開啟專案</span>
+      <input id="font-file" type="file" accept=".ttf,.otf,.woff,.woff2" multiple hidden />
+      <input id="page-file" type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" multiple hidden />
     </header>
 
     <div id="main">
@@ -102,6 +112,10 @@
           <div id="brush-cursor" hidden></div>
           <div id="picker-cursor" hidden>
             <svg class="filled" viewBox="0 0 24 24"><path d="M19.41 3c-.78-.78-2.05-.78-2.83 0l-2.59 2.59L12.7 4.3l-1.41 1.41L12.58 7l-8.29 8.29c-.13.13-.22.29-.26.46l-1 4c-.09.34.01.7.26.95.19.19.45.29.71.29.08 0 .16 0 .24-.03l4-1c.18-.04.34-.13.46-.26l8.29-8.29 1.29 1.29 1.41-1.41L18.4 10l2.59-2.59c.78-.78.78-2.05 0-2.83L19.4 2.99ZM7.48 18.1l-2.11.53.53-2.11 8.1-8.1 1.59 1.59-8.1 8.1Z"/></svg>
+            <span class="pick-chip">
+              <i class="pick-swatch" aria-hidden="true"></i>
+              <b class="pick-hex"></b>
+            </span>
           </div>
           <div id="rect-preview" hidden></div>
           <div id="view-float" class="view-float">
@@ -150,18 +164,24 @@
             <button type="button" role="tab" data-filter="used" aria-selected="false">已使用</button>
           </div>
           <div id="dialogue-list" class="list"></div>
-          <label class="check mini">
-            <input id="auto-advance" type="checkbox" checked />
-            自動放置下一則
-          </label>
+          <div class="list-foot">
+            <div class="row-btns">
+              <button type="button" id="btn-folders-expand" class="ghost compact">全部展開</button>
+              <button type="button" id="btn-folders-collapse" class="ghost compact">全部合併</button>
+            </div>
+            <label class="check mini">
+              <input id="auto-advance" type="checkbox" checked />
+              自動放置下一則
+            </label>
+          </div>
         </section>
 
         <section class="panel">
           <div class="panel-head">
             <h2>文字樣式</h2>
             <div class="panel-actions">
-              <button type="button" id="btn-unplace-text" class="ghost compact">移除對白</button>
-              <button type="button" id="btn-del-text" class="ghost compact danger">刪除對白</button>
+              <button type="button" id="btn-copy-style" class="ghost compact">複製樣式</button>
+              <button type="button" id="btn-paste-style" class="ghost compact">貼上樣式</button>
             </div>
           </div>
           <div class="grid-form">
@@ -295,18 +315,6 @@
                 </button>
               </span>
             </label>
-            <label class="span-2">尺寸
-              <select id="size-mode" hidden>
-                <option value="auto-width">自動寬</option>
-                <option value="auto-height" selected>自動高</option>
-                <option value="fixed">固定</option>
-              </select>
-              <div class="seg size-mode-seg" data-for="size-mode">
-                <button type="button" data-value="auto-width" aria-label="自動寬度">自動寬</button>
-                <button type="button" data-value="auto-height" class="on" aria-label="自動高度">自動高</button>
-                <button type="button" data-value="fixed" aria-label="固定外框">固定</button>
-              </div>
-            </label>
             <label>旋轉
               <input id="rotation" type="number" min="-180" max="180" step="0.5" value="0" />
             </label>
@@ -335,6 +343,16 @@
 
     <div id="page-menu" class="ctx-menu" hidden>
       <button type="button" id="page-menu-delete">刪除</button>
+    </div>
+
+    <div id="edit-menu" class="ctx-menu" hidden>
+      <button type="button" data-act="cut">剪下<span class="kbd">Ctrl+X</span></button>
+      <button type="button" data-act="copy">複製<span class="kbd">Ctrl+C</span></button>
+      <button type="button" data-act="paste">貼上<span class="kbd">Ctrl+V</span></button>
+      <button type="button" data-act="copy-style">複製樣式<span class="kbd">Ctrl+Shift+C</span></button>
+      <button type="button" data-act="paste-style">貼上樣式<span class="kbd">Ctrl+Shift+V</span></button>
+      <button type="button" data-act="unplace">取消放置<span class="kbd">Backspace</span></button>
+      <button type="button" data-act="delete" class="danger">刪除<span class="kbd">Delete</span></button>
     </div>
 
     <footer class="status">
@@ -386,24 +404,37 @@
         <li>使用<code>選擇</code>點選文字框、拖曳框選。雙擊進入編輯；編輯時可反白改局部樣式，拖四邊可移動框，八個控點只在非編輯時調整大小。</li>
         <li>點選<code>字體</code>匯入或管理字體。內建字體不能刪除或改名；自行匯入的可以。已匯入字體會出現在文字樣式的字體選單。</li>
       </ol>
-      <p>快捷鍵：
-選取：<code>V</code>
-拖曳：<code>空白鍵</code>或<code>滑鼠中鍵</code>
-筆刷：<code>B</code>
-橡皮擦：<code>E</code>
-矩形：<code>U</code>
-套索：<code>L</code>
-滴管：<code>I</code>或<code>滑鼠右鍵</code>
-文字：<code>T</code>
-刪除：<code>Delete</code>
-剪下：<code>Ctrl+X</code>
-複製：<code>Ctrl+C</code>
-貼上：<code>Ctrl+V</code>
-筆刷大小：<code>[</code> 及 <code>]</code>
-撤銷：<code>Ctrl+Z</code>
-復原：<code>Ctrl+Y</code></p>
       <div class="row-btns end">
         <button type="button" id="btn-help-close" class="primary">關閉</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="keys" class="modal" hidden>
+    <div class="sheet">
+      <h3>快捷鍵</h3>
+      <dl class="key-list">
+        <div><dt>選取</dt><dd><code>V</code></dd></div>
+        <div><dt>拖曳</dt><dd><code>空白鍵</code>或<code>滑鼠中鍵</code></dd></div>
+        <div><dt>筆刷</dt><dd><code>B</code></dd></div>
+        <div><dt>橡皮擦</dt><dd><code>E</code></dd></div>
+        <div><dt>矩形</dt><dd><code>U</code></dd></div>
+        <div><dt>套索</dt><dd><code>L</code></dd></div>
+        <div><dt>滴管</dt><dd><code>I</code>或<code>滑鼠右鍵</code></dd></div>
+        <div><dt>文字</dt><dd><code>T</code></dd></div>
+        <div><dt>取消放置</dt><dd><code>Backspace</code></dd></div>
+        <div><dt>刪除</dt><dd><code>Delete</code></dd></div>
+        <div><dt>剪下</dt><dd><code>Ctrl+X</code></dd></div>
+        <div><dt>複製</dt><dd><code>Ctrl+C</code></dd></div>
+        <div><dt>貼上</dt><dd><code>Ctrl+V</code></dd></div>
+        <div><dt>複製樣式</dt><dd><code>Ctrl+Shift+C</code></dd></div>
+        <div><dt>貼上樣式</dt><dd><code>Ctrl+Shift+V</code></dd></div>
+        <div><dt>筆刷大小</dt><dd><code>[</code>及<code>]</code></dd></div>
+        <div><dt>撤銷</dt><dd><code>Ctrl+Z</code></dd></div>
+        <div><dt>復原</dt><dd><code>Ctrl+Y</code></dd></div>
+      </dl>
+      <div class="row-btns end">
+        <button type="button" id="btn-keys-close" class="primary">關閉</button>
       </div>
     </div>
   </div>
@@ -470,14 +501,14 @@
           <textarea id="set-translate-prompt" rows="8"></textarea>
         </label>
         <div class="row-btns">
-          <button type="button" id="btn-set-reset-prompt" class="ghost compact">還原預設提示詞</button>
+          <button type="button" id="btn-set-reset-prompt">還原預設提示詞</button>
         </div>
       </div>
       <div class="settings-pane" data-pane="glossary" hidden>
         <div class="glossary-box">
           <div class="glossary-head">
             <span>術語表</span>
-            <button type="button" id="btn-glossary-add" class="ghost compact">新增詞條</button>
+            <button type="button" id="btn-glossary-add">新增詞條</button>
           </div>
           <div class="glossary-cols"><span>原文</span><span>譯文</span><span></span></div>
           <div id="auto-glossary" class="glossary-list"></div>
@@ -668,6 +699,6 @@ ABC123</div>
   </div>
 
   <div id="toast" hidden></div>
-  <script type="module" src="/static/js/app.js?v=20260926zoom4"></script>
+  <script type="module" src="/static/js/app.js?v=20260928fold1"></script>
 </body>
 </html>

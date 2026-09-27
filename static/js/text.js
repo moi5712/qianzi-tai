@@ -1,15 +1,16 @@
 // --- 文字框 ---
-import { $$, state, project, ui, bag, uid, currentTexts, pageEntry, usedDialogueIds, selectedDialogueList, selectDialogues, clearDialogueSelection, fontFamilyCss } from "./store.js";
+import { $$, state, project, ui, bag, uid, currentTexts, pageEntry, usedDialogueIds, selectedDialogueList, selectDialogues, clearDialogueSelection } from "./store.js";
 import { t, toastT } from "./copy.js";
 import { pushHistory } from "./history.js";
 import { markDirty } from "./api.js";
-import { applyView, rotateVec, setDialogueFilter } from "./view.js";
+import { applyView, setDialogueFilter } from "./view.js";
 import { writeStyleToForm, styleForNewText, estimateBox } from "./style.js";
 import { placedPageOf, renderDialogue, syncDialogueFromText } from "./dialogue.js";
-import { ensureFontsForTexts, loadPage } from "./pages.js";
+import { loadPage } from "./pages.js";
+import { ensureFontsForTexts } from "./fontload.js";
 import { colorWithAlpha } from "./color.js";
-import { fillTextInner, clampRuns, restoreCharSel, caretOffsetFromPoint, placeCaret, caretOffset, readInnerText, clearCharSel, activeCharSel, paintCharHighlight, applyTextStroke } from "./glyphs.js";
-import { applySizeMode, measureTextMetrics } from "./boxgeom.js";
+import { fillTextInner, clampRuns, restoreCharSel, caretOffsetFromPoint, placeCaret, caretOffset, readInnerText, clearCharSel, activeCharSel, paintCharHighlight } from "./glyphs.js";
+import { applySizeMode, measureTextMetrics, localToWorld, textInnerStyle, sizeInner, applyPreviewTextStyle } from "./boxgeom.js";
 function nextUnplacedInScope(scope) {
   const used = usedDialogueIds();
   return project.dialogue.find((d) => {
@@ -42,18 +43,20 @@ function addTextBox(item, imgX, imgY, style, offset = 0) {
 
 function finishPlace(boxes, scope) {
   const last = boxes.at(-1);
-  selectOnly(last ? last.id : null);
-  if (ui.autoAdvance?.checked && scope !== undefined) {
-    const next = nextUnplacedInScope(scope);
-    if (next) selectDialogues([next.id]);
+  const next = ui.autoAdvance?.checked && scope !== undefined ? nextUnplacedInScope(scope) : null;
+  if (next) {
+    selectOnly(null);
+    selectDialogues([next.id]);
+  } else {
+    selectOnly(last ? last.id : null);
+    if (last?.dialogueId) selectDialogues([last.dialogueId]);
     else clearDialogueSelection();
-  } else if (last?.dialogueId) {
-    selectDialogues([last.dialogueId]);
   }
   renderTexts();
   renderDialogue();
   revealDialogueInList(state.selectedDialogueIds);
-  if (last) writeStyleToForm(last);
+  const shown = selectedText();
+  if (shown) writeStyleToForm(shown);
   markDirty();
 }
 
@@ -89,21 +92,6 @@ function createEmptyDialogueAt(imgX, imgY) {
   const box = addTextBox(item, imgX, imgY, styleForNewText());
   selectDialogues([item.id]);
   finishPlace([box]);
-}
-
-function localToWorld(t, lx, ly) {
-  const cx = t.x + t.w / 2;
-  const cy = t.y + t.h / 2;
-  const r = rotateVec(lx - t.w / 2, ly - t.h / 2, t.rotation);
-  return { x: cx + r.x, y: cy + r.y };
-}
-
-function pinOpposite(t, world, lx, ly) {
-  const r = rotateVec(lx - t.w / 2, ly - t.h / 2, t.rotation);
-  const cx = world.x - r.x;
-  const cy = world.y - r.y;
-  t.x = cx - t.w / 2;
-  t.y = cy - t.h / 2;
 }
 
 function removeTextsByDialogue(id) {
@@ -176,22 +164,6 @@ function deleteSelectedTexts() {
   markDirty();
 }
 
-function textInnerStyle(t) {
-  const h = t.alignH || "center";
-  if (t.vertical) {
-    return {
-      jc: "center",
-      ai: { left: "flex-start", center: "center", right: "flex-end" }[h] || "center",
-      textAlign: { left: "start", center: "center", right: "end" }[h] || "center",
-    };
-  }
-  return {
-    jc: { left: "flex-start", center: "center", right: "flex-end" }[h] || "center",
-    ai: "center",
-    textAlign: h,
-  };
-}
-
 function handleCursor(handle, rotation) {
   const angles = { n: 0, ne: 45, e: 90, se: 135, s: 180, sw: 225, w: 270, nw: 315 };
   const total = ((angles[handle] || 0) + (rotation || 0)) % 180;
@@ -222,27 +194,6 @@ function layoutTextEl(el, t) {
   syncBoxChrome(el, t);
 }
 
-function sizeInner(inner, t) {
-  if (!inner) return;
-  inner.style.boxSizing = "border-box";
-  inner.style.overflow = "hidden";
-  if (t.vertical) {
-    inner.style.width = "max-content";
-    inner.style.height = "100%";
-    inner.style.minWidth = "max-content";
-    inner.style.minHeight = "0";
-    inner.style.maxWidth = "none";
-    inner.style.maxHeight = "100%";
-  } else {
-    inner.style.width = "100%";
-    inner.style.height = "max-content";
-    inner.style.minWidth = "0";
-    inner.style.minHeight = "0";
-    inner.style.maxWidth = "100%";
-    inner.style.maxHeight = "none";
-  }
-}
-
 function syncBoxFields(t) {
   const w = String(Math.round(t.w));
   const h = String(Math.round(t.h));
@@ -251,21 +202,10 @@ function syncBoxFields(t) {
 }
 
 function paintTextEl(el, t) {
-  const { textAlign } = textInnerStyle(t);
   layoutTextEl(el, t);
   const inner = el.querySelector(".inner");
-  inner.style.fontFamily = fontFamilyCss(t.font);
-  inner.style.fontSize = t.fontSize + "px";
-  inner.style.fontWeight = t.fontWeight;
+  applyPreviewTextStyle(inner, t);
   inner.style.color = colorWithAlpha(t.color, t.opacity);
-  applyTextStroke(inner, t.strokeWidth, t.strokeColor);
-  inner.style.lineHeight = String(t.lineHeight);
-  inner.style.letterSpacing = t.letterSpacing + "px";
-  inner.style.writingMode = t.vertical ? "vertical-rl" : "horizontal-tb";
-  inner.style.textOrientation = "mixed";
-  inner.style.textAlign = textAlign;
-  inner.style.flex = "0 0 auto";
-  sizeInner(inner, t);
   fillTextInner(inner, t);
 }
 
@@ -356,7 +296,6 @@ function ensureBoxChrome(el) {
     if (inner?.nextSibling) el.insertBefore(layer, inner.nextSibling);
     else el.appendChild(layer);
   }
-  el.querySelectorAll(".edge, .box-badge, .sel-frame").forEach((node) => node.remove());
 }
 
 function renderTexts() {
@@ -469,7 +408,6 @@ function revealDialogueInList(ids) {
   const set = ids instanceof Set
     ? ids
     : new Set(Array.isArray(ids) ? ids : ids ? [ids] : [...state.selectedDialogueIds]);
-  if (!set.size && state.selectedDialogueId) set.add(state.selectedDialogueId);
   let missing = [...set].some((id) => !ui.dialogueList.querySelector(`.line[data-id="${id}"]`));
   if (missing && state.dialogueFilter !== "all") {
     setDialogueFilter("all");
@@ -495,9 +433,8 @@ function revealDialogueInList(ids) {
 
 function syncLibraryFromTexts() {
   const ids = [...new Set(selectedTexts().map((item) => item.dialogueId).filter(Boolean))];
-  if (ids.length) {
-    selectDialogues(ids, selectedText()?.dialogueId || ids[0]);
-  }
+  if (ids.length) selectDialogues(ids, selectedText()?.dialogueId || ids[0]);
+  else clearDialogueSelection();
   revealDialogueInList(state.selectedDialogueIds);
 }
 
@@ -728,8 +665,6 @@ function pasteTexts() {
 export {
   placeTextAt,
   createEmptyDialogueAt,
-  localToWorld,
-  pinOpposite,
   removeTextsByDialogue,
   unplaceSelectedTexts,
   deleteSelectedTexts,

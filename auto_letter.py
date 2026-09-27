@@ -11,6 +11,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from settings import DEFAULT_SETTINGS, copy_prompts
+
 # --- 共用：解析模型回覆 ---
 
 def extract_json(text: str):
@@ -181,29 +183,46 @@ def chat_complete(settings: dict, messages: list, timeout: int = 180) -> str:
 
 # --- 共用：整理圖像、座標與文字 ---
 
-def encode_page_image(path: Path, max_long_side: int = 1792) -> tuple[str, int, int]:
+def encode_page_image(path: Path, max_long_side: int = 1792) -> tuple[str, int, int, int, int]:
     try:
         from PIL import Image
     except ImportError as err:
         raise ValueError("需要 Pillow 才能壓縮頁面圖。請先執行：pip install Pillow") from err
     with Image.open(path) as im:
         rgb = im.convert("RGB")
-        width, height = rgb.size
+        orig_w, orig_h = rgb.size
         limit = max(640, min(int(max_long_side or 1792), 4096))
-        longest = max(width, height)
+        longest = max(orig_w, orig_h)
         if longest > limit:
             scale = limit / longest
             rgb = rgb.resize(
-                (max(1, int(width * scale)), max(1, int(height * scale))),
+                (max(1, int(orig_w * scale)), max(1, int(orig_h * scale))),
                 Image.Resampling.LANCZOS,
             )
+        sent_w, sent_h = rgb.size
         buf = io.BytesIO()
         rgb.save(buf, format="JPEG", quality=82, optimize=True)
-    return base64.b64encode(buf.getvalue()).decode("ascii"), width, height
+    return base64.b64encode(buf.getvalue()).decode("ascii"), orig_w, orig_h, sent_w, sent_h
 
 
 def clamp(n: float, a: float, b: float) -> float:
     return max(a, min(b, n))
+
+
+def scale_box(box: dict, sent_w: int, sent_h: int, orig_w: int, orig_h: int) -> dict:
+    if sent_w == orig_w and sent_h == orig_h:
+        return box
+    sx = orig_w / max(sent_w, 1)
+    sy = orig_h / max(sent_h, 1)
+    x = clamp(float(box["x"]) * sx, 0, orig_w)
+    y = clamp(float(box["y"]) * sy, 0, orig_h)
+    return {
+        **box,
+        "x": round(x, 2),
+        "y": round(y, 2),
+        "w": round(clamp(float(box["w"]) * sx, 8, orig_w - x), 2),
+        "h": round(clamp(float(box["h"]) * sy, 8, orig_h - y), 2),
+    }
 
 
 def to_box(item: dict, img_w: int, img_h: int) -> dict:
@@ -277,7 +296,7 @@ def recognize_page_api(page_path: Path, settings: dict, include_sfx: bool | None
     if not page_path.is_file():
         raise ValueError("找不到頁面圖：" + page_path.name)
     max_side = int(settings.get("maxLongSide") or 1792)
-    b64, img_w, img_h = encode_page_image(page_path, max_side)
+    b64, orig_w, orig_h, sent_w, sent_h = encode_page_image(page_path, max_side)
     if include_sfx is None:
         use_sfx = bool(settings.get("includeSfx", DEFAULT_SETTINGS["includeSfx"]))
     else:
@@ -285,7 +304,7 @@ def recognize_page_api(page_path: Path, settings: dict, include_sfx: bool | None
     extra = "" if use_sfx else "\n本次不要輸出 sfx，只輸出 speech / thought / narration。"
     prompt = str(settings.get("ocrPrompt") or copy_prompts()[0]).strip() + extra
     prompt += "\nvertical 只能是 true 或 false：true 直排，false 橫排。"
-    prompt += f"\n本頁檔名：{page_path.name}，像素 {img_w}×{img_h}。"
+    prompt += f"\n本頁檔名：{page_path.name}，像素 {sent_w}×{sent_h}。"
     content = chat_complete(
         settings,
         [
@@ -317,7 +336,7 @@ def recognize_page_api(page_path: Path, settings: dict, include_sfx: bool | None
             kind = "speech"
         if kind == "sfx" and not use_sfx:
             continue
-        box = to_box(item, img_w, img_h)
+        box = scale_box(to_box(item, sent_w, sent_h), sent_w, sent_h, orig_w, orig_h)
         order = item.get("order")
         try:
             order = int(order)
@@ -342,8 +361,8 @@ def recognize_page_api(page_path: Path, settings: dict, include_sfx: bool | None
         raw_preview = (content or "").strip()[:400]
     return {
         "pageName": page_path.name,
-        "width": img_w,
-        "height": img_h,
+        "width": orig_w,
+        "height": orig_h,
         "bubbles": out,
         "warning": warning,
         "rawPreview": raw_preview,

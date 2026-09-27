@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""本地 OCR：RapidOCR 整頁找框，裁切放大後再認字。"""
+"""本地 OCR：RapidOCR 整頁找框；僅低信心／短字／大框才裁切重認。"""
 from __future__ import annotations
 
 import threading
@@ -10,6 +10,8 @@ _LOCK = threading.Lock()
 _CROP_PAD = 0.10
 _UPSCALE_MIN = 48
 _LOW_CONF = 0.35
+_SHORT_SRC = 2
+_LARGE_AREA = 0.08
 
 
 def get_engine():
@@ -137,6 +139,11 @@ def _image_source(im):
         return im.convert("RGB")
 
 
+def probe_sample(im) -> list[dict]:
+    """公開探測：對單張圖跑一次辨識，確認引擎可用。"""
+    return _run_ocr(get_engine(), _image_source(im))
+
+
 def _run_ocr(engine, source) -> list[dict]:
     with _LOCK:
         result = engine(source)
@@ -174,6 +181,20 @@ def _crop_pad(img_w: int, img_h: int, x: float, y: float, w: float, h: float) ->
     return x0, y0, x1, y1
 
 
+def _needs_crop_reread(item: dict, img_w: int, img_h: int) -> bool:
+    src = str(item.get("src") or "").strip()
+    score = float(item.get("score") or 0)
+    area = float(item.get("w") or 0) * float(item.get("h") or 0)
+    page_area = max(1, img_w * img_h)
+    if score < _LOW_CONF:
+        return True
+    if len(src) < _SHORT_SRC:
+        return True
+    if area > page_area * _LARGE_AREA:
+        return True
+    return False
+
+
 def _recognize_crop(engine, rgb, item: dict) -> tuple[str, float]:
     x0, y0, x1, y1 = _crop_pad(rgb.width, rgb.height, item["x"], item["y"], item["w"], item["h"])
     if x1 - x0 < 6 or y1 - y0 < 6:
@@ -202,14 +223,18 @@ def recognize_local(page_path: Path, include_sfx: bool = False) -> dict:
     detected = _run_ocr(engine, _image_source(rgb))
     lines = []
     for item in detected:
-        try:
-            crop_src, crop_score = _recognize_crop(engine, rgb, item)
-        except Exception:
-            crop_src, crop_score = "", 0.0
-        src = crop_src or item["src"]
+        src = str(item.get("src") or "").strip()
+        score = float(item.get("score") or 0)
+        if _needs_crop_reread(item, img_w, img_h):
+            try:
+                crop_src, crop_score = _recognize_crop(engine, rgb, item)
+            except Exception:
+                crop_src, crop_score = "", 0.0
+            if crop_src:
+                src = crop_src
+                score = crop_score
         if not src:
             continue
-        score = crop_score if crop_src else float(item.get("score") or 0)
         lines.append(
             {
                 "src": src,

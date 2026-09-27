@@ -1,21 +1,8 @@
 // --- 匯出 ---
 import { state, ui, pageEntry, pageMediaUrl } from "./store.js";
-import { ensureFontsForTexts } from "./pages.js";
-import { paintTextEl } from "./text.js";
+import { ensureFontsForTexts } from "./fontload.js";
 import { colorWithAlpha } from "./color.js";
-import { tokenizeText, toTcyText, charStyleAt, rangeForOffsets } from "./glyphs.js";
-
-function nextFrame() {
-  return new Promise((resolve) => requestAnimationFrame(resolve));
-}
-
-function makeMeasureBox(t) {
-  const el = document.createElement("div");
-  el.className = "text-box";
-  el.innerHTML = `<div class="inner"></div>`;
-  paintTextEl(el, { ...t, rotation: 0 });
-  return el;
-}
+import { layoutGlyphs } from "./boxgeom.js";
 
 function drawStyledText(ctx, style, text, sideways, boxW, boxH) {
   ctx.font = `${style.fontWeight} ${style.fontSize}px "${style.font}"`;
@@ -34,56 +21,30 @@ function drawStyledText(ctx, style, text, sideways, boxW, boxH) {
   ctx.restore();
 }
 
-function drawGlyphsFromBox(ctx, t, el, origin, scaleX, scaleY) {
-  const inner = el.querySelector(".inner");
-  if (!inner || !t.text) return;
+function drawGlyphs(ctx, t, glyphs) {
+  if (!glyphs.length) return;
   ctx.save();
   ctx.translate(t.x + t.w / 2, t.y + t.h / 2);
-  ctx.rotate((t.rotation * Math.PI) / 180);
+  ctx.rotate(((t.rotation || 0) * Math.PI) / 180);
   ctx.translate(-(t.x + t.w / 2), -(t.y + t.h / 2));
   ctx.lineJoin = "round";
   ctx.miterLimit = 2;
   ctx.textBaseline = "middle";
   ctx.textAlign = "center";
-  for (const tok of tokenizeText(t.text, t.vertical)) {
-    if (tok.text === "\n" || tok.text === "\r") continue;
-    let r;
-    try {
-      r = rangeForOffsets(inner, tok.start, tok.end).getBoundingClientRect();
-    } catch {
-      continue;
-    }
-    if (r.width <= 0 && r.height <= 0) continue;
-    const x = (r.left - origin.left + r.width / 2) * scaleX;
-    const y = (r.top - origin.top + r.height / 2) * scaleY;
-    const style = charStyleAt(t, tok.start);
-    const sideways = t.vertical && tok.sideways;
+  for (const g of glyphs) {
     ctx.save();
-    ctx.translate(x, y);
-    drawStyledText(ctx, style, tok.combine ? toTcyText(tok.text) : tok.text, sideways, r.width * scaleX, r.height * scaleY);
+    ctx.translate(t.x + g.x, t.y + g.y);
+    drawStyledText(ctx, { ...t, ...g.style }, g.text, g.sideways, g.w, g.h);
     ctx.restore();
   }
   ctx.restore();
 }
 
-async function drawTextsFromDom(ctx, texts, imgW, imgH) {
-  if (!texts.length) return;
-  const layer = document.createElement("div");
-  layer.style.cssText = `position:fixed;left:${-(imgW + 80)}px;top:0;width:${imgW}px;height:${imgH}px;overflow:visible;pointer-events:none;`;
-  const boxes = texts.map((t) => {
-    const el = makeMeasureBox(t);
-    layer.appendChild(el);
-    return { t, el };
-  });
-  document.body.appendChild(layer);
-  await document.fonts.ready;
-  await nextFrame();
-  await nextFrame();
-  const origin = layer.getBoundingClientRect();
-  const scaleX = origin.width ? imgW / origin.width : 1;
-  const scaleY = origin.height ? imgH / origin.height : 1;
-  for (const { t, el } of boxes) drawGlyphsFromBox(ctx, t, el, origin, scaleX, scaleY);
-  layer.remove();
+function drawTexts(ctx, texts) {
+  for (const t of texts || []) {
+    if (!t?.text) continue;
+    drawGlyphs(ctx, t, layoutGlyphs(t));
+  }
 }
 
 async function rasterize(pageName) {
@@ -110,7 +71,7 @@ async function rasterize(pageName) {
   const texts = pageEntry(pageName).texts;
   await ensureFontsForTexts(texts);
   await document.fonts.ready;
-  await drawTextsFromDom(ctx, texts, canvas.width, canvas.height);
+  drawTexts(ctx, texts);
   return canvas;
 }
 
@@ -123,7 +84,4 @@ async function exportPage(pageName) {
   if (!res.ok) throw new Error(pageName);
 }
 
-export {
-  makeMeasureBox,
-  exportPage,
-};
+export { exportPage };

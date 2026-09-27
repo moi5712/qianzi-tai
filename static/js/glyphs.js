@@ -115,13 +115,6 @@ function charStyleAt(t, index) {
   return out;
 }
 
-function fontsUsedByText(t) {
-  const set = new Set();
-  if (t?.font) set.add(t.font);
-  for (const run of t.runs || []) if (run.font) set.add(run.font);
-  return [...set];
-}
-
 function clampRuns(t) {
   const n = String(t?.text || "").length;
   t.runs = (t.runs || [])
@@ -514,7 +507,6 @@ export {
   tokenizeText,
   toTcyText,
   charStyleAt,
-  fontsUsedByText,
   clampRuns,
   stripRunKey,
   applyRunStyle,

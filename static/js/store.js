@@ -10,17 +10,6 @@ export function fontFamilyCss(name) {
     : `"Microsoft JhengHei", "Noto Sans TC", sans-serif`;
 }
 
-export const HANDLE_OPP = {
-  se: (w, h) => [0, 0],
-  nw: (w, h) => [w, h],
-  ne: (w, h) => [0, h],
-  sw: (w, h) => [w, 0],
-  n: (w, h) => [w / 2, h],
-  s: (w, h) => [w / 2, 0],
-  e: (w, h) => [0, h / 2],
-  w: (w, h) => [w, h / 2],
-};
-
 export const TOOL_KEYS = { KeyV: "select", Space: "pan", KeyB: "brush", KeyE: "eraser", KeyU: "rect", KeyL: "lasso", KeyI: "picker", KeyT: "text" };
 export const TOOL_HOLD_MS = 280;
 
@@ -75,6 +64,21 @@ export function clamp(n, a, b) {
   return Math.max(a, Math.min(b, n));
 }
 
+export function rotateVec(x, y, deg) {
+  const r = ((deg || 0) * Math.PI) / 180;
+  const c = Math.cos(r);
+  const s = Math.sin(r);
+  return { x: x * c - y * s, y: x * s + y * c };
+}
+
+export function debounce(fn, ms) {
+  let timer = 0;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+}
+
 export const state = {
   pages: [],
   pageName: "",
@@ -108,7 +112,6 @@ export const project = {
 export const ui = {};
 export const pageHistory = new Map();
 export const importedFontList = [];
-export const fontFileByFamily = new Map();
 export const fontFacesByFamily = new Map();
 export const loadedFamilies = new Set();
 
@@ -124,6 +127,9 @@ export const bag = {
   styleEditing: false,
   restoring: false,
   textClip: { items: [], fromCut: false, pasteN: 0 },
+  dialogueClip: { items: [], fromCut: false, pasteN: 0 },
+  styleClip: null,
+  editFocus: "text",
   autoResults: [],
   autoBusy: false,
   autoAbort: null,
@@ -136,13 +142,16 @@ export const bag = {
   formSyncRaf: 0,
   formSyncSeq: 0,
   picking: false,
+  pickHex: "",
   charSel: null,
   glyphPick: false,
   inlineEdit: null,
   editArmed: false,
   boxPtr: null,
-  editGesture: null,
   editCaret: null,
+  cursorRaf: 0,
+  cursorEvent: null,
+  selRaf: 0,
 };
 
 function pageStoreKey() {

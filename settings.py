@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from io_util import write_json_atomic
+
 SETTINGS_NAME = "settings.json"
 COPY_PATH = Path(__file__).resolve().parent / "文案.json"
 _copy_cache: tuple[float, dict] | None = None
@@ -85,11 +87,7 @@ def save_settings(data_dir: Path, incoming: dict) -> dict:
         if key == "apiKey" and not str(incoming.get("apiKey") or "").strip():
             continue
         data[key] = incoming[key]
-    data_dir.mkdir(parents=True, exist_ok=True)
-    settings_path(data_dir).write_text(
-        json.dumps(data, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    write_json_atomic(settings_path(data_dir), data)
     return data
 
 
@@ -99,7 +97,6 @@ def public_settings(data: dict) -> dict:
     out["hasApiKey"] = bool(key.strip())
     out["apiKey"] = ""
     return out
-
 
 
 def merge_request_settings(base: dict, incoming) -> dict:
