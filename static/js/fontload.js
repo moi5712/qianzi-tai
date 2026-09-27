@@ -150,7 +150,7 @@ export function unloadFont(family) {
 export async function ensureFontLoaded(family, weight) {
   if (!family) return;
   const face = nearestFontFace(family, weight);
-  if (!face) {
+  if (!face || !face.url) {
     loadedFamilies.add(family);
     return;
   }

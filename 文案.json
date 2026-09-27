@@ -154,6 +154,8 @@
     "exporting": "匯出中 {i}/{n}",
     "exportedOne": "已匯出到專案的「匯出」資料夾",
     "exportedMany": "已匯出 {n} 頁到專案的「匯出」資料夾",
+    "exportedOneWeb": "已下載匯出圖",
+    "exportedManyWeb": "已下載 {n} 頁",
     "projectOpened": "已開啟「{name}」",
     "projectCreated": "已建立「{name}」",
     "projectSwitchFail": "切換專案失敗：{msg}",
@@ -192,6 +194,7 @@
       "invalid_json": "API 回傳格式異常。",
       "need_pillow": "本地缺少圖像處理元件。",
       "need_local_ocr": "尚未安裝本地 OCR。",
+      "cors": "瀏覽器被網站跨域政策擋下（常見於官方 OpenAI）。",
       "unknown": "測試未完成。"
     },
     "actions": {
@@ -212,6 +215,7 @@
       "invalid_json": "請確認 API 位址為 OpenAI 相容的 chat completions 端點。",
       "need_pillow": "請安裝 Pillow 後重新啟動工具。",
       "need_local_ocr": "請執行 pip install rapidocr onnxruntime 後重新啟動。",
+      "cors": "請改用允許瀏覽器呼叫的相容端點，或改用本機版。",
       "unknown": "請確認設定後重試。"
     }
   },

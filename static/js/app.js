@@ -12,6 +12,7 @@ import { applyFontCatalog } from "./fonts.js";
 import { bindPointers, bindKeys } from "./bind-input.js";
 import { bindForm, bindButtons } from "./bind-ui.js";
 import { bindEditMenu } from "./ctx-menu.js";
+import { installWebBackend, WEB_MODE, applyWebUi } from "./web-backend.js";
 
 function cacheUi() {
   ui.viewport = $("#viewport");
@@ -212,7 +213,9 @@ async function bootProject() {
 }
 
 async function init() {
+  await installWebBackend();
   cacheUi();
+  if (WEB_MODE) applyWebUi();
   fillFontSelect();
   bindPointers();
   bindForm();

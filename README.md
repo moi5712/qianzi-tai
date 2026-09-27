@@ -2,6 +2,10 @@
 
 快速漫畫漢化嵌字一站式全流程工具，可直接於瀏覽器中操作，可接入 AI 模型一鍵識別內容並翻譯，所有處理均於本地完成。
 
+**線上使用：** [https://moi5712.github.io/qianzi-tai/](https://moi5712.github.io/qianzi-tai/)
+
+網頁版可在瀏覽器匯入圖片、嵌字、匯入字體與匯出。專案存在這個瀏覽器裡。本機 OCR、系統資料夾存檔與完整內建字體請用下方安裝的桌面版。
+
 ## 安裝（Windows）
 
 1. 安裝 [Python 3.10 或更新](https://www.python.org/downloads/)。安裝畫面請勾選 **Add python.exe to PATH**。

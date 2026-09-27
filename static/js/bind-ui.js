@@ -11,6 +11,7 @@ import { bindFontLibrary } from "./fonts.js";
 import { bindColorPopover, fillRange, setColorTarget, addSwatch, renderSwatches } from "./color.js";
 import { openAutoModal, closeAutoModal, openSettingsModal, runAutoPipeline, applyAutoResults, saveApiSettings, setPagePickSelection, selectedPagePicks, renderPagePicks, setSettingsBusy, postProbe, addGlossaryRow, onGlossaryTextInput, setSettingsTab } from "./auto.js";
 import { exportPage } from "./export.js";
+import { WEB_MODE } from "./web-backend.js";
 
 function bindForm() {
   [
@@ -329,7 +330,7 @@ function bindButtons(switchWorkspace) {
         await exportPage(names[i]);
       }
       ui.exportModal.hidden = true;
-      toastT(names.length === 1 ? "exportedOne" : "exportedMany", { n: names.length });
+      toastT(names.length === 1 ? (WEB_MODE ? "exportedOneWeb" : "exportedOne") : (WEB_MODE ? "exportedManyWeb" : "exportedMany"), { n: names.length });
     } catch (err) {
       toastT("exportFail", { msg: err.message || err });
     } finally {
